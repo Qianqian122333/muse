@@ -663,8 +663,18 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
   .d-quote{font-size:22px}
 
   .ctx{max-width:min(280px,calc(100vw - 16px))}
-  .toast,.toast.above-dock{left:12px;right:12px;bottom:calc(16px + env(safe-area-inset-bottom,0px));width:auto;transform:translate(0,16px);box-sizing:border-box}
-  .toast.on{transform:translate(0,0)}
+  .field,.ep-title,#epNote,.d-title,.note-area,.tag-input,.ep-dest .ep-new-cv{
+    font-size:16px!important;
+  }
+  .toast,.toast.above-dock{
+    left:50%;right:auto;bottom:calc(14px + env(safe-area-inset-bottom,0px));
+    width:max-content;max-width:min(280px,calc(100vw - 32px));
+    transform:translate(-50%,12px);box-sizing:border-box;
+    padding:8px 12px;font-size:12.5px;gap:8px;border-radius:10px;
+  }
+  .toast.on{transform:translate(-50%,0)}
+  .toast-mark{width:16px;height:16px}
+  .toast button{padding:4px 8px;font-size:12px;border-radius:7px}
 }
 
 @media (max-width:420px){

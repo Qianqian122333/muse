@@ -118,7 +118,7 @@ export const museMarkup = `
       <div class="suggest" id="suggest"></div>
     </div>
     <div class="muse-subhead">
-      <div class="sum" id="sum"><span>Search one or more keywords, tags, or dates</span></div>
+      <div class="sum" id="sum"></div>
       <div class="muse-toolbar">
         <div id="browseSwitchHost" class="browse-switch-host"></div>
       </div>

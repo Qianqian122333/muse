@@ -879,7 +879,7 @@ function applySearch(fit){
   return hits;
 }
 function renderSearchSummary(p=lastP,hits){
-  const s=$('#sum');if(!p||isEmptyQ(p)){s.innerHTML=qIn.value.trim()?'<span>Add another keyword, or press Enter</span>':'<span>Search one or more keywords, tags, or dates</span>';return;}
+  const s=$('#sum');if(!p||isEmptyQ(p)){s.innerHTML=qIn.value.trim()?'<span>Add another keyword, or press Enter</span>':'';return;}
   hits=hits||$$('.card.hit',world).map(e=>e.dataset.id);
   const c=canvas();const total=state.items.filter(it=>it&&matches(it,p)).length;const elsewhere=total-hits.length;
   const chips=[...p.terms.map(t=>`<span class="chip">${esc(t)}</span>`),p.type?`<span class="chip">${p.type}s</span>`:'',p.notes?`<span class="chip">with notes</span>`:'',p.dateLabel?`<span class="chip d">saved ${esc(p.dateLabel)}</span>`:''].join('');
@@ -1146,6 +1146,17 @@ function openSaveSheet(it,finalTags,opts={}){
     persist();
     pop.classList.remove('on');
     if(onCanvas&&$('#view-muse').classList.contains('on'))renderCanvas();
+    const captureTarget=opts.captureTarget;
+    if(captureTarget){
+      captureTarget.classList.remove('flash');void captureTarget.offsetWidth;captureTarget.classList.add('flash');
+      if(!captureTarget.querySelector('.saved-mark')&&captureTarget.dataset.save!=='w-link'){
+        captureTarget.insertAdjacentHTML('beforeend','<span class="saved-mark"><img src="/logo.png" alt="" />Saved</span>');
+      }
+    }
+    if(mount==='#extPop'){
+      savedCount++;
+      const b=$('#extBadge');if(b){b.textContent=savedCount;b.classList.add('on');}
+    }
     const dest=canvas(pendingDest);
     toast(onCanvas?`Saved`:`Saved to “${dest?dest.name:'All Inspiration'}”`);
   };
@@ -1162,11 +1173,9 @@ function saveFromWeb(p,target){
   let it;const id='n'+Date.now().toString(36);
   if(p.text){const t=p.text.length>260?p.text.slice(0,257).trim()+'…':p.text;
     it={id,type:'article',title:'Designing for Clarity: Why Less Is More in User Experience',source:'clarity.journal',text:t,tags:[],savedAt:Date.now(),note:''};
-    openSaveSheet(it,tagsForText(t),{mount:'#extPop',sourceLabel:'clarity.journal'});}
+    openSaveSheet(it,tagsForText(t),{mount:'#extPop',sourceLabel:'clarity.journal',captureTarget:target||null});}
   else{const w=WEB[p.key];it={id,type:w.type,title:w.title,source:'clarity.journal',tags:[],savedAt:Date.now(),note:'',duration:w.duration,img:w.img||null,video:w.video||null,art:w.art?{...w.art}:null};
-    openSaveSheet(it,w.tags.slice(),{mount:'#extPop',sourceLabel:'clarity.journal'});}
-  if(target){target.classList.remove('flash');void target.offsetWidth;target.classList.add('flash');if(!target.querySelector('.saved-mark')&&target.dataset.save!=='w-link'){target.insertAdjacentHTML('beforeend','<span class="saved-mark"><img src="/logo.png" alt="" />Saved</span>');}}
-  savedCount++;const b=$('#extBadge');b.textContent=savedCount;b.classList.add('on');
+    openSaveSheet(it,w.tags.slice(),{mount:'#extPop',sourceLabel:'clarity.journal',captureTarget:target||null});}
 }
 
 /* ================= browse inspiration ================= */
