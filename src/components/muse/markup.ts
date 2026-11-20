@@ -20,7 +20,7 @@ export const museMarkup = `
       <p>Right-click an image, the video, or some selected text and choose <b>Save to Muse</b>. AI adds tags like <b>ux</b> or <b>white space</b> automatically.</p>
     </div>
     <div class="hint-pill hint-desktop"><kbd>Right-click</kbd> on anything in the page below</div>
-    <div class="hint-pill hint-mobile"><kbd>Press &amp; hold</kbd> an image or video to save</div>
+    <div class="hint-pill hint-mobile"><kbd>Press &amp; hold</kbd> image/video, or <kbd>select text</kbd> then Save</div>
   </div>
 
   <div class="browser" id="browser">
@@ -269,6 +269,10 @@ export const museMarkup = `
 </section>
 
 <div class="ctx" id="ctx" role="menu"></div>
+<button type="button" class="text-save-bar" id="textSaveBar" hidden>
+  <span class="m"><img src="/logo.png" alt="" width="16" height="16" /></span>
+  Save to Muse
+</button>
 <div class="picker" id="picker"></div>
 <div class="toast" id="toast"><span class="toast-mark" aria-hidden="true"></span><span id="toastMsg"></span><button type="button" id="toastBtn"></button></div>
 `.trim();
