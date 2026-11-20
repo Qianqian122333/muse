@@ -1068,14 +1068,14 @@ function openSaveSheet(it,finalTags,opts={}){
   ];
   const pop=$(mount);if(!pop)return;
   const thumb=(it.img||it.video||it.art)?artFor(it):`<span class="q">${it.type==='article'?'“':'↗'}</span>`;
-  const title=it.type==='article'?`“${it.text}”`:it.title;
+  const titleValue=it.type==='article'?(it.text||it.title||''):(it.title||'');
   const onCanvas=mount==='#musePop';
   const destHtml=onCanvas?'':`<div class="ep-dest" id="epDestWrap">
       <span>Save to</span>
       <div class="muse-select-host" id="epDestHost"></div>
     </div>`;
   pop.innerHTML=`<div class="ep-head"><span class="logo"><img src="/logo.png" alt="" width="22" height="22" /><span class="logo-word">Muse<i></i></span></span><span class="ep-head-spacer"></span><button class="icon-x" type="button" id="epX" aria-label="Close">${I.x}</button></div>
-  <div class="ep-body"><div class="ep-thumb">${thumb}</div><div><div class="ep-title">${esc(title)}</div><div class="ep-src">${esc(sourceLabel)}</div></div></div>
+  <div class="ep-body"><div class="ep-thumb">${thumb}</div><div class="ep-meta"><input class="ep-title field" id="epTitle" type="text" value="${esc(titleValue)}" aria-label="Title" placeholder="Add a title"><div class="ep-src">${esc(sourceLabel)}</div></div></div>
   <div><div class="ai-label">${I.spark}<span id="epAi">AI is looking at it…</span></div><div class="chips" id="epTags"><span class="chip ghost"></span><span class="chip ghost"></span><span class="chip ghost"></span></div></div>
   <label class="ep-note-wrap"><span class="ep-note-label">Add a thought <em>optional</em></span><input class="field" id="epNote" placeholder="Press Enter to save"></label>
   <div class="ep-foot${onCanvas?' ep-foot-end':''}">
@@ -1085,6 +1085,12 @@ function openSaveSheet(it,finalTags,opts={}){
   pop.classList.add('on');
   if(onCanvas)placeMusePopNearCardBtn(pop);
   const q=s=>pop.querySelector(s);
+  const commitTitle=()=>{
+    const raw=(q('#epTitle')?.value||'').trim();
+    if(!raw)return;
+    if(it.type==='article'){it.text=raw;it.title=raw.length>80?raw.slice(0,77).trim()+'…':raw;}
+    else it.title=raw;
+  };
   const applyDest=next=>{
     const prev=pendingDest;
     if(next===prev)return;
@@ -1132,7 +1138,10 @@ function openSaveSheet(it,finalTags,opts={}){
   };
   if(!onCanvas)bindDest();
   q('#epX').onclick=()=>pop.classList.remove('on');
+  q('#epTitle').oninput=()=>commitTitle();
+  q('#epTitle').onchange=()=>commitTitle();
   q('#epSave').onclick=()=>{
+    commitTitle();
     if(q('#epNewCv'))commitNewCanvas();
     persist();
     pop.classList.remove('on');
