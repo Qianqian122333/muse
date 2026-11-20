@@ -1,7 +1,7 @@
 export const museMarkup = `
 <nav class="steps" aria-label="Demo steps">
-  <button type="button" data-view="capture" class="on"><span>1</span>Save from the web</button>
-  <button type="button" data-view="muse"><span>2</span>My Muse</button>
+  <button type="button" data-view="capture" class="on"><span>1</span>The page you're browsing</button>
+  <button type="button" data-view="muse"><span>2</span>Muse</button>
 </nav>
 <header class="app-bar">
   <div class="logo notice" id="appLogo"><span class="hl">This is the website you're browsing, not the Muse interface.</span></div>
@@ -19,7 +19,8 @@ export const museMarkup = `
       <h1>Save anything while you browse</h1>
       <p>Right-click an image, the video, or some selected text and choose <b>Save to Muse</b>. AI adds tags like <b>ux</b> or <b>white space</b> automatically.</p>
     </div>
-    <div class="hint-pill"><kbd>Right-click</kbd> on anything in the page below</div>
+    <div class="hint-pill hint-desktop"><kbd>Right-click</kbd> on anything in the page below</div>
+    <div class="hint-pill hint-mobile"><kbd>Press &amp; hold</kbd> an image or video to save</div>
   </div>
 
   <div class="browser" id="browser">
@@ -37,7 +38,7 @@ export const museMarkup = `
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
         <span><b>clarity.journal</b>/essays/designing-for-clarity</span>
       </div>
-      <button class="ext" id="extBtn" type="button" title="Muse extension"><span class="m">m</span><span class="badge" id="extBadge">0</span></button>
+      <button class="ext" id="extBtn" type="button" title="Muse extension"><span class="m"><img src="/logo.png" alt="" /></span><span class="badge" id="extBadge">0</span></button>
     </div>
 
     <div class="b-page" id="page">
@@ -112,40 +113,33 @@ export const museMarkup = `
   <div class="muse-head">
     <div class="search" id="searchBox">
       <svg class="search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-      <input id="q" type="text" autocomplete="off" placeholder="Search your inspiration" aria-label="Search Muse">
+      <input id="q" type="text" autocomplete="off" placeholder="Search keywords, tags…" aria-label="Search Muse">
       <button class="icon-x clear" id="qClear" type="button" aria-label="Clear search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       <div class="suggest" id="suggest"></div>
     </div>
     <div class="muse-subhead">
-      <div class="sum" id="sum"></div>
+      <div class="sum" id="sum"><span>Search one or more keywords, tags, or dates</span></div>
       <div class="muse-toolbar">
-        <button type="button" class="btn" id="browseToggle" aria-pressed="false">Browse inspiration</button>
+        <div id="browseSwitchHost" class="browse-switch-host"></div>
       </div>
     </div>
   </div>
 
   <div class="muse-stage">
-  <div class="browse-view" id="browseView" hidden>
-    <div class="browse-filters">
-      <label class="browse-filter">
-        <span>Canvas</span>
-        <select id="browseCanvas" aria-label="Filter by canvas"></select>
-      </label>
-      <label class="browse-filter">
-        <span>Time</span>
-        <select id="browseTime" aria-label="Sort by time">
-          <option value="newest">Newest first</option>
-          <option value="oldest">Oldest first</option>
-          <option value="today">Saved today</option>
-          <option value="week">Last 7 days</option>
-        </select>
-      </label>
-      <span class="browse-count" id="browseCount"></span>
+    <div class="browse-view" id="browseView">
+      <div class="browse-filters">
+        <label class="browse-filter">
+          <span>Canvas</span>
+          <div id="browseCanvasHost" class="muse-select-host"></div>
+        </label>
+        <label class="browse-filter">
+          <span>Time</span>
+          <div id="browseTimeHost" class="muse-select-host"></div>
+        </label>
+        <span class="browse-count" id="browseCount"></span>
+      </div>
+      <div class="browse-scroll"><div class="browse-grid" id="browseGrid"></div></div>
     </div>
-    <div class="browse-scroll">
-      <div class="browse-grid" id="browseGrid"></div>
-    </div>
-  </div>
 
   <div class="viewport" id="vp">
     <div class="world" id="world"></div>
@@ -154,29 +148,22 @@ export const museMarkup = `
 
     <div class="floating cv-actions">
       <span class="save-state" id="saveState"></span>
-      <button class="btn" id="addCardsBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add cards</button>
-      <button class="btn primary" id="saveBtn" type="button">Save canvas</button>
+      <div class="cv-actions-btns">
+        <button class="btn primary" id="saveBtn" type="button">Save</button>
+      </div>
     </div>
 
     <div class="floating tool-dock" id="toolDock">
       <div class="tool-wrap">
-        <button type="button" class="tool-btn" id="addStickyBtn" title="Sticky note" aria-label="Add sticky note" aria-expanded="false" aria-controls="stickyPop">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm8 1.5V9h4.5"/></svg>
+        <button type="button" class="tool-btn" id="newCardBtn" title="Add" aria-label="Add" aria-expanded="false" aria-controls="cardMenuPop">
+          <svg class="tool-ico tool-ico-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
         </button>
-        <div class="tool-pop" id="stickyPop" hidden>
-          <div class="tool-pop-label">Color</div>
-          <div class="swatch-row" id="stickyColors"></div>
-          <div class="tool-pop-label">Font</div>
-          <div class="chip-row" id="stickyFonts"></div>
-          <div class="tool-pop-label">Size</div>
-          <div class="chip-row" id="stickySizes"></div>
-          <button type="button" class="btn primary tool-pop-go" id="stickyPlace">Place sticky</button>
+        <div class="tool-pop tool-pop-wide" id="cardMenuPop" hidden>
+          <button type="button" class="btn primary tool-pop-go" id="cardMenuCreate">Create new inspiration</button>
+          <button type="button" class="btn tool-pop-go" id="cardMenuAdd">Import your inspiration</button>
         </div>
-      </div>
-      <div class="tool-wrap">
-        <button type="button" class="tool-btn" id="newCardBtn" title="New inspiration card" aria-label="Create inspiration card" aria-expanded="false" aria-controls="cardPop">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M12 8v8M8 12h8"/></svg>
-        </button>
         <div class="tool-pop tool-pop-wide" id="cardPop" hidden>
           <div class="tool-tabs" role="tablist">
             <button type="button" class="tool-tab on" data-card-tab="photo" role="tab" aria-selected="true">Photo</button>
@@ -201,12 +188,26 @@ export const museMarkup = `
             <input class="field" id="cardTitle" placeholder="Title" aria-label="Card title">
             <textarea class="field" id="cardBody" rows="4" placeholder="Write your inspiration…" aria-label="Card text"></textarea>
           </div>
-          <button type="button" class="btn primary tool-pop-go" id="cardCreate">Add to canvas</button>
+          <button type="button" class="btn primary tool-pop-go" id="cardCreate">Create new card</button>
         </div>
       </div>
       <div class="tool-wrap">
-        <button type="button" class="tool-btn" id="brushBtn" title="Draw" aria-label="Draw on canvas" aria-pressed="false">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l4.5-1.2L19.2 8.1a2.1 2.1 0 0 0-3-3L5.5 15.8L4 20z"/><path d="M13.5 6.5l3 3"/></svg>
+        <button type="button" class="tool-btn tool-btn-sticky" id="addStickyBtn" title="Sticky note" aria-label="Add sticky note" aria-expanded="false" aria-controls="stickyPop">
+          <img class="tool-ico tool-ico-sticky" src="/sticky-soft-yellow.png?v=3" alt="" width="28" height="28" />
+        </button>
+        <div class="tool-pop" id="stickyPop" hidden>
+          <div class="tool-pop-label">Color</div>
+          <div class="swatch-row" id="stickyColors"></div>
+          <div class="tool-pop-label">Font</div>
+          <div class="chip-row" id="stickyFonts"></div>
+          <div class="tool-pop-label">Size</div>
+          <div class="chip-row" id="stickySizes"></div>
+          <button type="button" class="btn primary tool-pop-go" id="stickyPlace">Place sticky</button>
+        </div>
+      </div>
+      <div class="tool-wrap">
+        <button type="button" class="tool-btn tool-btn-object" id="brushBtn" title="Pen" aria-label="Draw on canvas" aria-pressed="false">
+          <span class="tool-ico tool-ico-xl tool-ico-mask" style="--tool-mask:url('/pen.png')" aria-hidden="true"></span>
         </button>
         <div class="tool-pop" id="brushPop" hidden>
           <div class="tool-pop-label">Ink</div>
@@ -216,23 +217,29 @@ export const museMarkup = `
         </div>
       </div>
       <div class="tool-wrap">
-        <button type="button" class="tool-btn" id="eraseBtn" title="Eraser" aria-label="Eraser" aria-pressed="false">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
+        <button type="button" class="tool-btn tool-btn-object" id="eraseBtn" title="Eraser" aria-label="Eraser" aria-pressed="false">
+          <span class="tool-ico tool-ico-xl tool-ico-mask" style="--tool-mask:url('/eraser.png')" aria-hidden="true"></span>
         </button>
         <div class="tool-pop" id="erasePop" hidden>
           <button type="button" class="btn primary tool-pop-go" id="eraseSelectedBtn">Erase selected drawings</button>
-          <button type="button" class="btn ghost tool-pop-go" id="brushClear">Clear all drawings</button>
+          <button type="button" class="btn tool-pop-go" id="brushClear">Clear all drawings</button>
         </div>
       </div>
     </div>
 
     <div class="muse-pop" id="musePop" aria-live="polite"></div>
 
-    <div class="floating legend">
-      <span><i class="lg-n"></i>Has a note</span>
-      <span>Drag to arrange</span>
-      <span><kbd>Shift</kbd> + click to select</span>
-      <span><kbd>Ctrl</kbd> + scroll to zoom</span>
+    <div class="floating legend" id="legend">
+      <button type="button" class="legend-toggle" id="legendToggle" aria-expanded="true" aria-controls="legendBody" title="Hide tips" aria-label="Hide tips">
+        <svg class="legend-ico-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4"/><circle cx="12" cy="17" r=".8" fill="currentColor" stroke="none"/></svg>
+        <svg class="legend-ico-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <div class="legend-body" id="legendBody">
+        <span><i class="lg-n"></i>Has a note</span>
+        <span>Drag to arrange</span>
+        <span><kbd>Shift</kbd> + click to select</span>
+        <span><kbd>Ctrl</kbd> + scroll to zoom</span>
+      </div>
     </div>
 
     <div class="floating zoom">
@@ -246,21 +253,22 @@ export const museMarkup = `
     <div class="empty" id="empty"><div>
       <h3>A blank canvas</h3>
       <p>Pull in the saves that belong together. You can also select cards on All Inspiration and send them here.</p>
-      <button class="btn primary" type="button" id="emptyAdd">Add cards from Muse</button>
     </div></div>
-
+  </div>
   </div>
 
-  <aside class="side" id="detail"></aside>
-  <aside class="side" id="tray">
+  <aside class="side" id="detail" aria-hidden="true">
+    <div class="side-head"><h3>Inspiration</h3><button class="icon-x" type="button" data-close="detail" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="side-body" id="detailBody"></div>
+  </aside>
+  <aside class="side" id="tray" aria-hidden="true">
     <div class="side-head"><h3>Add cards to this canvas</h3><button class="icon-x" type="button" data-close="tray" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="tray-search"><input class="field" id="trayQ" placeholder="Filter by tag or title" aria-label="Filter cards"></div>
     <div class="tray-list" id="trayList"></div>
   </aside>
-  </div>
 </section>
 
 <div class="ctx" id="ctx" role="menu"></div>
 <div class="picker" id="picker"></div>
-<div class="toast" id="toast"><span id="toastMsg"></span><button type="button" id="toastBtn"></button></div>
+<div class="toast" id="toast"><span class="toast-mark" aria-hidden="true"></span><span id="toastMsg"></span><button type="button" id="toastBtn"></button></div>
 `.trim();

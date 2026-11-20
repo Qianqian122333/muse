@@ -10,7 +10,7 @@ export default function MuseApp() {
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
-    if (!root.querySelector(".steps")) root.innerHTML = museMarkup;
+    root.innerHTML = museMarkup;
     initMuseDemo();
     return () => {
       resetMuseInit();

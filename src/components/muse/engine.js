@@ -1,4 +1,6 @@
 /* Muse prototype engine — extracted from index.html */
+import { mountBrowseSwitch, mountMuseSelect, unmountMuseSelect } from './selectMount';
+
 let museInited=false;
 export function resetMuseInit(){museInited=false;}
 export function initMuseDemo() {
@@ -10,6 +12,8 @@ museInited=true;
 const $=(s,el=document)=>el.querySelector(s);
 const $$=(s,el=document)=>[...el.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const MOBILE_MQ='(max-width:820px)';
+const isMobile=()=>window.matchMedia(MOBILE_MQ).matches;
 const DAY=864e5;
 const dayStart=t=>{const d=new Date(t);d.setHours(0,0,0,0);return d.getTime();};
 const D=(n,h,m)=>{const d=new Date();d.setDate(d.getDate()-n);d.setHours(h,m,0,0);return d.getTime();};
@@ -163,11 +167,11 @@ function ensureStickies(c){if(c&&!c.stickies)c.stickies={};return c?c.stickies:{
 function ensureInk(c){if(c&&!Array.isArray(c.ink))c.ink=[];return c?c.ink:[];}
 
 const STICKY_PALETTE=[
-  {bg:'#F7F0DD',ink:'#8A7040'},
+  {bg:'#E6CA9A',ink:'#6A5A3A'},
+  {bg:'#CBD77E',ink:'#4A5530'},
   {bg:'#F5D6D0',ink:'#8F5A55'},
   {bg:'#D6E8F0',ink:'#4A6B7C'},
-  {bg:'#D9ECD8',ink:'#4F7350'},
-  {bg:'#EDE0F0',ink:'#6E5578'}
+  {bg:'#EEEEEE',ink:'#282828'}
 ];
 const STICKY_FONTS=[
   {id:'sans',label:'Sans',family:'var(--body)'},
@@ -175,10 +179,10 @@ const STICKY_FONTS=[
   {id:'mono',label:'Mono',family:'ui-monospace,SFMono-Regular,Menlo,monospace'}
 ];
 const STICKY_SIZES=[12,14,16,18];
-let stickyStyle={color:'#F7F0DD',font:'sans',size:14};
-const BRUSH_COLORS=['#2C2A27','#A67C52','#C45C4A','#4A6B7C','#EDEBE8'];
+let stickyStyle={color:'#E6CA9A',font:'sans',size:14};
+const BRUSH_COLORS=['#282828','#CBD77E','#E6CA9A','#7A7A7A'];
 const BRUSH_SIZES=[2,4,8,14];
-let brushStyle={color:'#2C2A27',width:4};
+let brushStyle={color:'#282828',width:4};
 let inkTool=null; /* null | 'draw' | 'erase' */
 let inkStroke=null;
 let ignoreToolCloseUntil=0;
@@ -237,7 +241,7 @@ let switchView=(v)=>{
 };
 $$('.steps button').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.view)));
 function stickyHTML(id,s){
-  const bg=s.color||'#F7F0DD',ink=stickyInk(bg),font=stickyFontFamily(s.font||'sans'),size=(s.size||14)+'px';
+  const bg=s.color||'#E6CA9A',ink=stickyInk(bg),font=stickyFontFamily(s.font||'sans'),size=(s.size||14)+'px';
   /* single-quoted style so font-family commas/quotes don't break the attribute */
   return `<div class="sticky" data-sid="${id}" style='left:${s.x}px;top:${s.y}px;--sticky-bg:${bg};--sticky-ink:${ink};--sticky-font:${font};--sticky-size:${size}'>
     <div class="sticky-bar">
@@ -307,6 +311,7 @@ function addSticky(){
 }
 function renderCanvas(){
   const c=canvas();ensureStickies(c);ensureInk(c);
+  [...selected].forEach(id=>{if(!c.pos[id])selected.delete(id);});
   const cards=Object.keys(c.pos).filter(id=>item(id)).map(id=>cardHTML(item(id),c.pos[id])).join('');
   const notes=Object.entries(c.stickies).map(([id,s])=>stickyHTML(id,s)).join('');
   world.innerHTML=inkLayerHTML(c)+cards+notes;
@@ -314,7 +319,6 @@ function renderCanvas(){
   bindStickies();
   const empty=!c.system&&Object.keys(c.pos).length===0&&Object.keys(c.stickies).length===0&&!c.ink.length;
   $('#empty').classList.toggle('on',empty);
-  $('#addCardsBtn').style.display=c.system?'none':'';
   renderPanel();renderSaveState();renderSelbar();applySearch(false);applyView();
 }
 const cardEl=id=>world.querySelector(`.card[data-id="${id}"]`);
@@ -376,9 +380,14 @@ vp.addEventListener('pointerdown',e=>{
   }else if(card){
     exitStickyEdit();
     const id=card.dataset.id,c=canvas();
-    const group=selected.has(id)?[...selected]:[id];
+    if(!c?.pos?.[id])return;
+    const ids=(selected.has(id)?[...selected]:[id]).filter(g=>{
+      const p=c.pos[g];return p&&Number.isFinite(p.x)&&Number.isFinite(p.y);
+    });
+    if(!ids.length)return;
+    const start=ids.map(g=>{const p=c.pos[g];return{id:g,x:p.x,y:p.y,el:cardEl(g)};});
     card.style.zIndex=++zTop;
-    drag={kind:'card',id,sx:e.clientX,sy:e.clientY,moved:false,shift:e.shiftKey||e.metaKey||e.ctrlKey,start:group.map(g=>({id:g,x:c.pos[g].x,y:c.pos[g].y,el:cardEl(g)}))};
+    drag={kind:'card',id,sx:e.clientX,sy:e.clientY,moved:false,shift:e.shiftKey||e.metaKey||e.ctrlKey,start};
     capturePtr(e.pointerId);
   }else{
     exitStickyEdit();
@@ -478,15 +487,16 @@ $('#zFit').onclick=()=>fitTo();
 
 /* ================= bottom tool dock ================= */
 function closeToolPops(){
-  ['stickyPop','cardPop'].forEach(id=>{const el=$('#'+id);if(el)el.hidden=true;});
+  ['stickyPop','cardMenuPop','cardPop'].forEach(id=>{const el=$('#'+id);if(el)el.hidden=true;});
   if(inkTool!=='draw'){const bp=$('#brushPop');if(bp)bp.hidden=true;}
   if(inkTool!=='erase'){const ep=$('#erasePop');if(ep)ep.hidden=true;}
-  ['addStickyBtn','newCardBtn'].forEach(id=>{
+  ['addStickyBtn','newCardBtn','eraseBtn'].forEach(id=>{
     const b=$('#'+id);if(b)b.setAttribute('aria-expanded','false');
   });
 }
 function openToolPop(popId,btnId){
   const pop=$('#'+popId),btn=$('#'+btnId);
+  if(!pop)return;
   const opening=pop.hidden;
   closeToolPops();
   if(inkTool==='draw'){const bp=$('#brushPop');if(bp)bp.hidden=false;}
@@ -602,7 +612,12 @@ function createTextInspiration(){
 }
 $('#addStickyBtn').onclick=()=>{setInkTool(null);renderStickyPop();openToolPop('stickyPop','addStickyBtn');};
 $('#stickyPlace').onclick=addSticky;
-$('#newCardBtn').onclick=()=>{setInkTool(null);setCardTab($$('.tool-tab.on')[0]?.dataset.cardTab||'photo');openToolPop('cardPop','newCardBtn');};
+$('#newCardBtn').onclick=()=>{setInkTool(null);openToolPop('cardMenuPop','newCardBtn');};
+$('#cardMenuCreate').onclick=()=>{
+  setCardTab($$('.tool-tab.on')[0]?.dataset.cardTab||'photo');
+  openToolPop('cardPop','newCardBtn');
+};
+$('#cardMenuAdd').onclick=()=>{closeToolPops();openTray();};
 $$('.tool-tab').forEach(b=>b.onclick=()=>setCardTab(b.dataset.cardTab));
 $('#cardCreate').onclick=()=>{
   const tab=$$('.tool-tab.on')[0]?.dataset.cardTab||'photo';
@@ -619,16 +634,18 @@ $('#brushBtn').onclick=()=>{
   if(next==='draw')renderBrushPop();
 };
 $('#eraseBtn').onclick=()=>{
-  const ep=$('#erasePop');
+  const ep=$('#erasePop'),btn=$('#eraseBtn');
   const open=ep&&!ep.hidden;
   closeToolPops();
   setInkTool(null);
   if(open)return;
-  if(ep)ep.hidden=false;
+  if(ep){ep.hidden=false;btn?.setAttribute('aria-expanded','true');}
 };
 $('#eraseSelectedBtn').onclick=()=>{
   setInkTool('erase');
-  const ep=$('#erasePop');if(ep)ep.hidden=false;
+  const ep=$('#erasePop'),btn=$('#eraseBtn');
+  if(ep)ep.hidden=false;
+  btn?.setAttribute('aria-expanded','true');
 };
 $('#brushClear').onclick=()=>{
   const c=canvas();ensureInk(c);if(!c.ink.length)return;
@@ -655,8 +672,8 @@ function renderSaveState(){
   const c=canvas(),el=$('#saveState'),btn=$('#saveBtn');
   el.classList.toggle('dirty',!!c.dirty);
   el.textContent=c.dirty?'Unsaved changes':(c.savedAt?`Saved ${relDay(c.savedAt).toLowerCase()==='today'?'today':relDay(c.savedAt)}, ${fmtTime(c.savedAt)}`:'Not saved yet');
-  btn.disabled=false;btn.className='btn '+(c.dirty?'primary':'');
-  btn.innerHTML=c.dirty?'Save canvas':`${I.check}Saved`;
+  btn.disabled=false;btn.className='btn primary';
+  btn.textContent='Save';
 }
 function saveCanvas(){const c=canvas();c.dirty=false;c.savedAt=Date.now();persist();renderSaveState();renderPanel();toast(`“${c.name}” saved`);}
 $('#saveBtn').onclick=saveCanvas;
@@ -671,7 +688,7 @@ function renderPanel(){
   p.classList.toggle('collapsed',panelCollapsed);
   if(panelCollapsed){
     p.innerHTML=`<button type="button" class="cv-collapsed" id="cvExpand" title="Show canvases">
-      <span class="nm">${esc(cur.name)}</span>${cur.dirty?'<span class="dot" title="Unsaved changes"></span>':''}
+      <span class="nm">${esc(cur.name)}</span>${cur.dirty?'<span class="cv-dirty" title="Unsaved changes">Unsaved</span>':''}
       <span class="cv-toggle" aria-hidden="true">${I.chevR}</span>
     </button>`;
     $('#cvExpand').onclick=()=>{panelCollapsed=false;renderPanel();};
@@ -680,7 +697,7 @@ function renderPanel(){
   p.innerHTML=`<h3><span>Canvases</span><button type="button" class="cv-toggle" id="cvCollapse" title="Hide canvases" aria-label="Hide canvases">${I.chevL}</button></h3>`+state.canvases.map(c=>{
     const n=Object.keys(c.pos).length;
     if(renaming===c.id)return `<div class="cv-item on"><span class="sw"></span><input id="renameIn" value="${esc(c.name)}" aria-label="Canvas name"></div>`;
-    return `<button type="button" class="cv-item${c.id===state.current?' on':''}" data-cv="${c.id}" title="${c.system?'All your saves':'Double-click to rename'}"><span class="sw"></span><span class="nm">${esc(c.name)}</span>${c.dirty?'<span class="dot" title="Unsaved changes"></span>':''}<span class="ct">${n}</span></button>`;
+    return `<button type="button" class="cv-item${c.id===state.current?' on':''}" data-cv="${c.id}" title="${c.system?'All your saves':'Double-click to rename'}"><span class="sw"></span><span class="nm">${esc(c.name)}</span>${c.dirty?'<span class="cv-dirty" title="Unsaved changes">Unsaved</span>':''}<span class="ct">${n}</span></button>`;
   }).join('')+`<button type="button" class="cv-item cv-new" id="newCv">${I.plus}<span class="nm">New blank canvas</span></button>`;
   $('#cvCollapse').onclick=()=>{panelCollapsed=true;renderPanel();};
   $$('[data-cv]',p).forEach(b=>{
@@ -801,8 +818,6 @@ function renderTray(){
   });
 }
 $('#trayQ').oninput=renderTray;
-$('#addCardsBtn').onclick=openTray;$('#emptyAdd').onclick=openTray;
-
 /* ================= search ================= */
 const WD=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
 const WDS={sun:0,mon:1,tue:2,tues:2,wed:3,thu:4,thur:4,thurs:4,fri:5,sat:6};
@@ -828,30 +843,51 @@ function parseQuery(raw){
   return out;
 }
 const isEmptyQ=p=>!p.terms.length&&!p.range&&!p.notes&&!p.type;
+function termHit(it,t,hay){
+  if(!t)return true;
+  const tags=Array.isArray(it.tags)?it.tags:[];
+  if(tags.some(g=>g===t||(t.length>=2&&g.includes(t))))return true;
+  return t.length>=2&&hay.includes(t);
+}
 function matches(it,p){
+  if(!it||!p)return false;
   if(p.type&&it.type!==p.type)return false;
   if(p.notes&&!(it.note||'').trim())return false;
-  if(p.range&&(it.savedAt<p.range.from||it.savedAt>=p.range.to))return false;
-  const hay=(it.title+' '+(it.text||'')+' '+(it.note||'')+' '+it.source).toLowerCase();
-  return p.terms.every(t=>it.tags.some(g=>g===t||(t.length>=3&&g.includes(t)))||(t.length>=3&&hay.includes(t)));
+  if(p.range){
+    const at=it.savedAt;
+    if(at==null||at<p.range.from||at>=p.range.to)return false;
+  }
+  if(!p.terms.length)return true;
+  const hay=(it.title+' '+(it.text||'')+' '+(it.note||'')+' '+(it.source||'')+' '+(Array.isArray(it.tags)?it.tags.join(' '):'')).toLowerCase();
+  return p.terms.every(t=>termHit(it,t,hay));
 }
 const qIn=$('#q');let lastP=null;
 function applySearch(fit){
   const raw=qIn.value.trim();$('#searchBox').classList.toggle('has',!!raw);
   const p=raw?parseQuery(raw):null;lastP=p;
-  const active=p&&!isEmptyQ(p);const c=canvas();const hits=[];
-  $$('.card',world).forEach(el=>{const it=item(el.dataset.id);const m=active&&matches(it,p);el.classList.toggle('hit',!!m);el.classList.toggle('dim',!!active&&!m);if(m)hits.push(it.id);
-    $$('.tag',el).forEach(t=>t.classList.toggle('hl',!!m&&p.terms.some(term=>t.dataset.t===term||(term.length>=3&&t.dataset.t.includes(term)))));});
+  const active=p&&!isEmptyQ(p);const hits=[];
+  $$('.card',world).forEach(el=>{
+    const it=item(el.dataset.id);
+    if(!it){el.classList.remove('hit','dim');$$('.tag',el).forEach(t=>t.classList.remove('hl'));return;}
+    const m=active&&matches(it,p);
+    el.classList.toggle('hit',!!m);el.classList.toggle('dim',!!active&&!m);if(m)hits.push(it.id);
+    $$('.tag',el).forEach(t=>t.classList.toggle('hl',!!m&&p.terms.some(term=>t.dataset.t===term||(term.length>=2&&t.dataset.t.includes(term)))));
+  });
   renderSearchSummary(p,hits);
   if(fit&&active&&hits.length&&!browseMode)fitTo(hits,1);
   if(browseMode)renderBrowse();
   return hits;
 }
 function renderSearchSummary(p=lastP,hits){
-  const s=$('#sum');if(!p||isEmptyQ(p)){s.innerHTML=qIn.value.trim()?'<span>Type a tag, a word or a date</span>':'<span>Search by tag, a word from a note, or when you saved it</span>';return;}
+  const s=$('#sum');if(!p||isEmptyQ(p)){s.innerHTML=qIn.value.trim()?'<span>Add another keyword, or press Enter</span>':'<span>Search one or more keywords, tags, or dates</span>';return;}
   hits=hits||$$('.card.hit',world).map(e=>e.dataset.id);
-  const c=canvas();const total=state.items.filter(it=>matches(it,p)).length;const elsewhere=total-hits.length;
+  const c=canvas();const total=state.items.filter(it=>it&&matches(it,p)).length;const elsewhere=total-hits.length;
   const chips=[...p.terms.map(t=>`<span class="chip">${esc(t)}</span>`),p.type?`<span class="chip">${p.type}s</span>`:'',p.notes?`<span class="chip">with notes</span>`:'',p.dateLabel?`<span class="chip d">saved ${esc(p.dateLabel)}</span>`:''].join('');
+  if(isMobile()||browseMode){
+    const n=(isMobile()||browseMode)?browseItems().length:hits.length;
+    s.innerHTML=`<strong>${n} result${n!==1?'s':''}</strong> ${chips}`;
+    return;
+  }
   s.innerHTML=`<strong>${hits.length} result${hits.length!==1?'s':''}</strong> on ${esc(c.name)} ${chips}`+(elsewhere>0&&!c.system?` · <a id="seeAll">${elsewhere} more in All Inspiration</a>`:'')+(hits.length?' · <a id="zoomHits">Zoom to results</a>':'');
   if($('#seeAll'))$('#seeAll').onclick=()=>{switchCanvas('all');applySearch(true);};
   if($('#zoomHits'))$('#zoomHits').onclick=()=>applySearch(true);
@@ -860,11 +896,11 @@ qIn.addEventListener('input',()=>{applySearch(false);$('#suggest').classList.tog
 qIn.addEventListener('keydown',e=>{if(e.key==='Enter'){applySearch(true);$('#suggest').classList.remove('on');}if(e.key==='Escape'){qIn.value='';applySearch(false);qIn.blur();}});
 qIn.addEventListener('focus',()=>{if(!qIn.value.trim())renderSuggest();});
 qIn.addEventListener('blur',()=>setTimeout(()=>$('#suggest').classList.remove('on'),150));
-$('#qClear').onclick=()=>{qIn.value='';applySearch(false);fitTo();};
+$('#qClear').onclick=()=>{qIn.value='';applySearch(false);if(!isMobile()&&!browseMode)fitTo();};
 function renderSuggest(){
   const counts={};state.items.forEach(it=>it.tags.forEach(t=>counts[t]=(counts[t]||0)+1));
   const top=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10).map(e=>e[0]);
-  const tries=['white space','yesterday','clarity','ux','videos','with notes'];
+  const tries=['clarity ux','white space','yesterday','videos with notes','ux minimalism'];
   const sg=$('#suggest');
   sg.innerHTML=`<h4>Try a search</h4><div class="chips">${tries.map(t=>`<span class="chip" data-s="${t}">${t}</span>`).join('')}</div><h4>Your most used tags</h4><div class="chips">${top.map(t=>`<span class="chip" data-s="${esc(t)}">${esc(t)}</span>`).join('')}</div>`;
   sg.classList.add('on');
@@ -916,21 +952,47 @@ const KW=[[/clarit|simple|simplicit/,'clarity'],[/cognitive|choice|decision/,'co
 function tagsForText(t){const s=t.toLowerCase();const out=[];KW.forEach(([re,tag])=>{if(re.test(s)&&!out.includes(tag))out.push(tag);});return [...out.slice(0,4),'quote'];}
 
 const page=$('#page');
+function openCaptureMenu(clientX,clientY,opts={}){
+  const sel=window.getSelection();
+  const text=opts.text!=null?opts.text:(sel&&!sel.isCollapsed&&page.contains(sel.anchorNode)?sel.toString().trim():'');
+  const target=opts.target!==undefined?opts.target:null;
+  let html,payload;
+  if(text){payload={text};
+    html=`<button class="it dis">${I.copy}Copy</button><button class="it dis">Search the web for “${esc(text.slice(0,18))}${text.length>18?'…':''}”</button><hr><button class="it muse" data-go="1"><span class="m"><img src="/logo.png" alt="" /></span>Save selection to Muse</button>`;}
+  else if(target){const key=target.dataset.save;const w=WEB[key];payload={key};
+    if(w.type==='image')html=`<button class="it dis">${I.open}Open image in new tab</button><button class="it dis">${I.img}Save image as…</button><button class="it dis">${I.copy}Copy image</button><hr><button class="it muse" data-go="1"><span class="m"><img src="/logo.png" alt="" /></span>Save image to Muse</button>`;
+    else if(w.type==='video')html=`<button class="it dis">Loop</button><button class="it dis">Show controls</button><button class="it dis">${I.copy}Copy video address</button><hr><button class="it muse" data-go="1"><span class="m"><img src="/logo.png" alt="" /></span>Save video to Muse</button>`;
+    else html=`<button class="it dis">${I.open}Open link in new tab</button><button class="it dis">${I.copy}Copy link address</button><hr><button class="it muse" data-go="1"><span class="m"><img src="/logo.png" alt="" /></span>Save link to Muse</button>`;}
+  else{payload={key:'page'};html=`<button class="it dis">Back</button><button class="it dis">Reload</button><button class="it dis">Save as…</button><hr><button class="it muse" data-go="1"><span class="m"><img src="/logo.png" alt="" /></span>Save this page to Muse</button>`;}
+  showCtx(clientX,clientY,html);
+  ctx.onclick=ev=>{if(!ev.target.closest('[data-go]'))return;hideMenus();saveFromWeb(payload,target);};
+}
 page.addEventListener('contextmenu',e=>{
   e.preventDefault();
-  const sel=window.getSelection();const text=sel&&!sel.isCollapsed&&page.contains(sel.anchorNode)?sel.toString().trim():'';
-  const target=e.target.closest('[data-save]');
-  let kind,html,payload;
-  if(text){kind='text';payload={text};
-    html=`<button class="it dis">${I.copy}Copy</button><button class="it dis">Search the web for “${esc(text.slice(0,18))}${text.length>18?'…':''}”</button><hr><button class="it muse" data-go="1"><span class="m">m</span>Save selection to Muse</button>`;}
-  else if(target){const key=target.dataset.save;const w=WEB[key];payload={key};
-    if(w.type==='image')html=`<button class="it dis">${I.open}Open image in new tab</button><button class="it dis">${I.img}Save image as…</button><button class="it dis">${I.copy}Copy image</button><hr><button class="it muse" data-go="1"><span class="m">m</span>Save image to Muse</button>`;
-    else if(w.type==='video')html=`<button class="it dis">Loop</button><button class="it dis">Show controls</button><button class="it dis">${I.copy}Copy video address</button><hr><button class="it muse" data-go="1"><span class="m">m</span>Save video to Muse</button>`;
-    else html=`<button class="it dis">${I.open}Open link in new tab</button><button class="it dis">${I.copy}Copy link address</button><hr><button class="it muse" data-go="1"><span class="m">m</span>Save link to Muse</button>`;}
-  else{payload={key:'page'};html=`<button class="it dis">Back</button><button class="it dis">Reload</button><button class="it dis">Save as…</button><hr><button class="it muse" data-go="1"><span class="m">m</span>Save this page to Muse</button>`;}
-  showCtx(e.clientX,e.clientY,html);
-  ctx.onclick=ev=>{if(!ev.target.closest('[data-go]'))return;hideMenus();saveFromWeb(payload,target);};
+  openCaptureMenu(e.clientX,e.clientY,{target:e.target.closest('[data-save]')});
 });
+/* Mobile: press & hold a saveable to open the Muse save menu */
+let holdT=null,holdPt=null;
+page.addEventListener('touchstart',e=>{
+  if(!isMobile())return;
+  const target=e.target.closest('[data-save]');
+  if(!target)return;
+  const t=e.touches[0];
+  holdPt={x:t.clientX,y:t.clientY,target};
+  clearTimeout(holdT);
+  holdT=setTimeout(()=>{
+    if(!holdPt)return;
+    openCaptureMenu(holdPt.x,holdPt.y,{target:holdPt.target,text:''});
+    holdPt=null;
+  },480);
+},{passive:true});
+page.addEventListener('touchmove',e=>{
+  if(!holdPt)return;
+  const t=e.touches[0];
+  if(Math.hypot(t.clientX-holdPt.x,t.clientY-holdPt.y)>12){clearTimeout(holdT);holdPt=null;}
+},{passive:true});
+page.addEventListener('touchend',()=>{clearTimeout(holdT);holdPt=null;});
+page.addEventListener('touchcancel',()=>{clearTimeout(holdT);holdPt=null;});
 
 let popTimers=[],savedCount=0,pendingFocus=[],pendingDest='all';
 function placeOnCanvas(cid,id){
@@ -1000,23 +1062,28 @@ function openSaveSheet(it,finalTags,opts={}){
   $('#extPop')?.classList.remove('on');
   $('#musePop')?.classList.remove('on');
   if(mount==='#musePop'&&$('#view-muse')?.classList.contains('on'))renderCanvas();
-  const destOpts=()=>state.canvases.map(c=>`<option value="${c.id}"${c.id===pendingDest?' selected':''}>${esc(c.name)}</option>`).join('')+`<option value="__new__">+ New canvas…</option>`;
+  const destSelectOptions=()=>[
+    ...state.canvases.map(c=>({value:c.id,label:c.name})),
+    {value:'__new__',label:'+ New canvas…'},
+  ];
   const pop=$(mount);if(!pop)return;
   const thumb=(it.img||it.video||it.art)?artFor(it):`<span class="q">${it.type==='article'?'“':'↗'}</span>`;
   const title=it.type==='article'?`“${it.text}”`:it.title;
-  pop.innerHTML=`<div class="ep-head"><span class="logo">muse<i></i></span><span class="ep-head-spacer"></span><button class="icon-x" type="button" id="epX" aria-label="Close">${I.x}</button></div>
+  const onCanvas=mount==='#musePop';
+  const destHtml=onCanvas?'':`<div class="ep-dest" id="epDestWrap">
+      <span>Save to</span>
+      <div class="muse-select-host" id="epDestHost"></div>
+    </div>`;
+  pop.innerHTML=`<div class="ep-head"><span class="logo"><img src="/logo.png" alt="" width="22" height="22" /><span class="logo-word">Muse<i></i></span></span><span class="ep-head-spacer"></span><button class="icon-x" type="button" id="epX" aria-label="Close">${I.x}</button></div>
   <div class="ep-body"><div class="ep-thumb">${thumb}</div><div><div class="ep-title">${esc(title)}</div><div class="ep-src">${esc(sourceLabel)}</div></div></div>
   <div><div class="ai-label">${I.spark}<span id="epAi">AI is looking at it…</span></div><div class="chips" id="epTags"><span class="chip ghost"></span><span class="chip ghost"></span><span class="chip ghost"></span></div></div>
   <label class="ep-note-wrap"><span class="ep-note-label">Add a thought <em>optional</em></span><input class="field" id="epNote" placeholder="Press Enter to save"></label>
-  <div class="ep-foot">
-    <div class="ep-dest" id="epDestWrap">
-      <span>Save to</span>
-      <select id="epDest" aria-label="Save destination">${destOpts()}</select>
-    </div>
+  <div class="ep-foot${onCanvas?' ep-foot-end':''}">
+    ${destHtml}
     <button class="btn primary" type="button" id="epSave">Save</button>
   </div>`;
   pop.classList.add('on');
-  if(mount==='#musePop')placeMusePopNearCardBtn(pop);
+  if(onCanvas)placeMusePopNearCardBtn(pop);
   const q=s=>pop.querySelector(s);
   const applyDest=next=>{
     const prev=pendingDest;
@@ -1024,6 +1091,11 @@ function openSaveSheet(it,finalTags,opts={}){
     if(prev!=='all'){const old=canvas(prev);if(old){delete old.pos[id];markDirty(old);}}
     if(next!=='all')placeOnCanvas(next,id);
     pendingDest=next;persist();
+  };
+  const showDestSelect=()=>{
+    const wrap=q('#epDestWrap');if(!wrap)return;
+    wrap.innerHTML=`<span>Save to</span><div class="muse-select-host" id="epDestHost"></div>`;
+    bindDest();
   };
   const commitNewCanvas=()=>{
     const inp=q('#epNewCv');
@@ -1033,39 +1105,40 @@ function openSaveSheet(it,finalTags,opts={}){
     placeOnCanvas(c.id,id);
     if(pendingDest!=='all'){const old=canvas(pendingDest);if(old){delete old.pos[id];markDirty(old);}}
     pendingDest=c.id;persist();renderPanel();
-    const wrap=q('#epDestWrap');
-    if(wrap){
-      wrap.innerHTML=`<span>Save to</span><select id="epDest" aria-label="Save destination">${destOpts()}</select>`;
-      bindDest();
-    }
+    showDestSelect();
     return true;
   };
   const bindDest=()=>{
-    const sel=q('#epDest');if(!sel)return;
-    sel.onchange=e=>{
-      if(e.target.value==='__new__'){
-        const wrap=q('#epDestWrap');
-        wrap.innerHTML=`<span>Save to</span><input class="field ep-new-cv" id="epNewCv" placeholder="Canvas name" aria-label="New canvas name"><button class="btn" type="button" id="epNewCancel">Cancel</button>`;
-        const inp=q('#epNewCv');inp.focus();
-        inp.onkeydown=ev=>{if(ev.key==='Enter'){ev.preventDefault();commitNewCanvas();}if(ev.key==='Escape'){q('#epNewCancel').click();}};
-        q('#epNewCancel').onclick=()=>{
-          wrap.innerHTML=`<span>Save to</span><select id="epDest" aria-label="Save destination">${destOpts()}</select>`;
-          bindDest();
-        };
-        return;
-      }
-      applyDest(e.target.value);
-    };
+    const host=q('#epDestHost');if(!host)return;
+    mountMuseSelect(host,{
+      value:pendingDest,
+      options:destSelectOptions(),
+      ariaLabel:'Save destination',
+      triggerClassName:'muse-select-trigger',
+      onChange:v=>{
+        if(v==='__new__'){
+          const wrap=q('#epDestWrap');
+          unmountMuseSelect(host);
+          wrap.innerHTML=`<span>Save to</span><input class="field ep-new-cv" id="epNewCv" placeholder="Canvas name" aria-label="New canvas name"><button class="btn" type="button" id="epNewCancel">Cancel</button>`;
+          const inp=q('#epNewCv');inp.focus();
+          inp.onkeydown=ev=>{if(ev.key==='Enter'){ev.preventDefault();commitNewCanvas();}if(ev.key==='Escape'){q('#epNewCancel').click();}};
+          q('#epNewCancel').onclick=()=>showDestSelect();
+          return;
+        }
+        applyDest(v);
+        bindDest();
+      },
+    });
   };
-  bindDest();
+  if(!onCanvas)bindDest();
   q('#epX').onclick=()=>pop.classList.remove('on');
   q('#epSave').onclick=()=>{
     if(q('#epNewCv'))commitNewCanvas();
     persist();
     pop.classList.remove('on');
-    if(mount==='#musePop'&&$('#view-muse').classList.contains('on'))renderCanvas();
+    if(onCanvas&&$('#view-muse').classList.contains('on'))renderCanvas();
     const dest=canvas(pendingDest);
-    toast(`Saved to “${dest?dest.name:'All Inspiration'}”`);
+    toast(onCanvas?`Saved`:`Saved to “${dest?dest.name:'All Inspiration'}”`);
   };
   q('#epNote').onkeydown=e=>{if(e.key==='Enter'){it.note=e.target.value;persist();e.target.value='';e.target.placeholder='Note saved ✓';}};
   q('#epNote').oninput=e=>{it.note=e.target.value;};
@@ -1083,7 +1156,7 @@ function saveFromWeb(p,target){
     openSaveSheet(it,tagsForText(t),{mount:'#extPop',sourceLabel:'clarity.journal'});}
   else{const w=WEB[p.key];it={id,type:w.type,title:w.title,source:'clarity.journal',tags:[],savedAt:Date.now(),note:'',duration:w.duration,img:w.img||null,video:w.video||null,art:w.art?{...w.art}:null};
     openSaveSheet(it,w.tags.slice(),{mount:'#extPop',sourceLabel:'clarity.journal'});}
-  if(target){target.classList.remove('flash');void target.offsetWidth;target.classList.add('flash');if(!target.querySelector('.saved-mark')&&target.dataset.save!=='w-link'){target.insertAdjacentHTML('beforeend','<span class="saved-mark"><i>m</i>Saved</span>');}}
+  if(target){target.classList.remove('flash');void target.offsetWidth;target.classList.add('flash');if(!target.querySelector('.saved-mark')&&target.dataset.save!=='w-link'){target.insertAdjacentHTML('beforeend','<span class="saved-mark"><img src="/logo.png" alt="" />Saved</span>');}}
   savedCount++;const b=$('#extBadge');b.textContent=savedCount;b.classList.add('on');
 }
 
@@ -1119,15 +1192,39 @@ function browseCardHTML(it){
     ${noted?`<div class="note"><div class="nl">${I.pen}NOTE</div><p>${esc(it.note)}</p></div>`:''}
   </button>`;
 }
+let browseCanvasFilter='*';
+let browseTimeFilter='newest';
+const BROWSE_TIME_OPTS=[
+  {value:'newest',label:'Newest first'},
+  {value:'oldest',label:'Oldest first'},
+  {value:'today',label:'Saved today'},
+  {value:'week',label:'Last 7 days'},
+];
+function browseCanvasOptions(){
+  return [{value:'*',label:'All canvases'},...state.canvases.filter(c=>!c.system).map(c=>({value:c.id,label:c.name}))];
+}
 function fillBrowseCanvasSelect(){
-  const sel=$('#browseCanvas');if(!sel)return;
-  const cur=sel.value||'*';
-  sel.innerHTML=`<option value="*">All canvases</option>`+state.canvases.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
-  if([...sel.options].some(o=>o.value===cur))sel.value=cur;else sel.value='*';
+  const opts=browseCanvasOptions();
+  if(!opts.some(o=>o.value===browseCanvasFilter))browseCanvasFilter='*';
+  mountMuseSelect($('#browseCanvasHost'),{
+    value:browseCanvasFilter,
+    options:opts,
+    ariaLabel:'Filter by canvas',
+    onChange:v=>{browseCanvasFilter=v;renderBrowse();},
+  });
+}
+function fillBrowseTimeSelect(){
+  if(!BROWSE_TIME_OPTS.some(o=>o.value===browseTimeFilter))browseTimeFilter='newest';
+  mountMuseSelect($('#browseTimeHost'),{
+    value:browseTimeFilter,
+    options:BROWSE_TIME_OPTS,
+    ariaLabel:'Sort by time',
+    onChange:v=>{browseTimeFilter=v;renderBrowse();},
+  });
 }
 function browseItems(){
-  const cv=$('#browseCanvas')?.value||'*';
-  const time=$('#browseTime')?.value||'newest';
+  const cv=browseCanvasFilter||'*';
+  const time=browseTimeFilter||'newest';
   const p=lastP&&!isEmptyQ(lastP)?lastP:null;
   const t0=dayStart(Date.now());
   let list=state.items.slice();
@@ -1141,6 +1238,7 @@ function browseItems(){
 function renderBrowse(){
   const grid=$('#browseGrid'),count=$('#browseCount');if(!grid)return;
   fillBrowseCanvasSelect();
+  fillBrowseTimeSelect();
   const list=browseItems();
   if(count)count.textContent=`${list.length} item${list.length!==1?'s':''}`;
   if(!list.length){
@@ -1152,22 +1250,42 @@ function renderBrowse(){
     el.onclick=()=>openDetail(el.dataset.id);
   });
 }
+function syncMobileChrome(){
+  root.classList.toggle('is-mobile',isMobile());
+}
+function syncBrowseSwitch(){
+  const host=$('#browseSwitchHost');
+  if(!host)return;
+  host.hidden=!!isMobile();
+  if(isMobile())return;
+  mountBrowseSwitch(host,{
+    checked:browseMode,
+    onCheckedChange:on=>{if(isMobile())return;setBrowseMode(!!on);},
+  });
+}
 function setBrowseMode(on){
+  if(isMobile())on=true;
   browseMode=!!on;
-  const muse=$('#view-muse'),btn=$('#browseToggle'),bv=$('#browseView');
+  const muse=$('#view-muse'),bv=$('#browseView');
   muse?.classList.toggle('browsing',browseMode);
   bv?.classList.toggle('on',browseMode);
   if(bv)bv.hidden=!browseMode;
-  if(btn){
-    btn.setAttribute('aria-pressed',browseMode?'true':'false');
-    btn.textContent=browseMode?'Back to canvas':'Browse inspiration';
-  }
+  syncBrowseSwitch();
   if(browseMode){setInkTool(null);closeToolPops();closeSide();clearSelection();renderBrowse();}
   else if(museReady){renderCanvas();if(!canvas().viewSet){fitTo();canvas().viewSet=true;}}
 }
-$('#browseToggle').onclick=()=>setBrowseMode(!browseMode);
-$('#browseCanvas').onchange=renderBrowse;
-$('#browseTime').onchange=renderBrowse;
+syncBrowseSwitch();
+
+/* legend: expanded by default, collapse to help icon */
+const legend=$('#legend'),legendToggle=$('#legendToggle');
+function setLegendCollapsed(collapsed){
+  if(!legend||!legendToggle)return;
+  legend.classList.toggle('collapsed',!!collapsed);
+  legendToggle.setAttribute('aria-expanded',collapsed?'false':'true');
+  legendToggle.title=collapsed?'Show tips':'Hide tips';
+  legendToggle.setAttribute('aria-label',collapsed?'Show tips':'Hide tips');
+}
+legendToggle?.addEventListener('click',()=>setLegendCollapsed(!legend.classList.contains('collapsed')));
 
 /* ================= views ================= */
 let museReady=false;
@@ -1181,11 +1299,17 @@ function setView(v){
       logo.innerHTML=`<span class="hl">This is the website you're browsing, not the Muse interface.</span>`;
     }else{
       logo.className='logo';
-      logo.innerHTML='muse<i></i>';
+      logo.innerHTML='<img src="/logo.png" alt="" width="40" height="40" /><span class="logo-word">Muse<i></i></span>';
     }
   }
   hideMenus();
   if(v==='muse'){
+    if(isMobile()){
+      if(pendingFocus.length){state.current='all';clearSelection();qIn.value='';pendingFocus=[];}
+      setBrowseMode(true);
+      museReady=true;
+      return;
+    }
     if(pendingFocus.length){state.current='all';clearSelection();qIn.value='';if(browseMode)setBrowseMode(false);}
     if(browseMode)renderBrowse();
     else{
@@ -1195,12 +1319,22 @@ function setView(v){
       else if(!canvas().viewSet){fitTo();canvas().viewSet=true;}
     }
     museReady=true;
-  }else if(browseMode){
+  }else if(browseMode&&!isMobile()){
     setBrowseMode(false);
   }
 }
 switchView=setView;
 $('#extBtn').onclick=()=>setView('muse');
+window.matchMedia(MOBILE_MQ).addEventListener('change',()=>{
+  syncMobileChrome();
+  if(isMobile()){
+    if($('#view-muse')?.classList.contains('on'))setBrowseMode(true);
+    else syncMobileChrome();
+  }else{
+    syncBrowseSwitch();
+    if($('#view-muse')?.classList.contains('on')&&browseMode)renderBrowse();
+  }
+});
 
 /* keyboard */
 document.addEventListener('keydown',e=>{
@@ -1219,7 +1353,7 @@ $('#resetBtn').onclick=()=>{
   state=seed();runPendingLayouts();persist();selected.clear();pendingFocus=[];savedCount=0;$('#extBadge').classList.remove('on');
   $$('.saved-mark').forEach(m=>m.remove());$('#extPop')?.classList.remove('on');$('#musePop')?.classList.remove('on');qIn.value='';closeSide();setInkTool(null);closeToolPops();
   if($('#view-muse').classList.contains('on')){
-    if(browseMode)renderBrowse();
+    if(isMobile()||browseMode){setBrowseMode(true);}
     else{renderCanvas();fitTo();canvas().viewSet=true;}
   }
   toast('Demo reset to its starting data');
@@ -1227,14 +1361,31 @@ $('#resetBtn').onclick=()=>{
 
 /* toast */
 let toastT;
-function toast(msg,label,fn){const t=$('#toast');$('#toastMsg').textContent=msg;const b=$('#toastBtn');b.textContent=label||'';b.onclick=()=>{t.classList.remove('on');fn&&fn();};t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),3800);}
+function toast(msg,label,fn){
+  const t=$('#toast');if(!t)return;
+  const err=/could not|please |write some|choose /i.test(String(msg||''));
+  const museOn=$('#view-muse')?.classList.contains('on');
+  const aboveDock=museOn&&!isMobile()&&!browseMode;
+  t.classList.toggle('toast-ok',!err);
+  t.classList.toggle('toast-err',err);
+  t.classList.toggle('above-dock',aboveDock);
+  $('#toastMsg').textContent=msg;
+  const b=$('#toastBtn');
+  b.textContent=label||'';
+  b.onclick=()=>{t.classList.remove('on');fn&&fn();};
+  t.classList.add('on');
+  clearTimeout(toastT);
+  toastT=setTimeout(()=>t.classList.remove('on'),3800);
+}
 
 /* ================= init ================= */
 function init(){
   state=load();
   if(!state){state=seed();runPendingLayouts();persist();}
   state.canvases.forEach(c=>{c.viewSet=false;ensureStickies(c);ensureInk(c);});
+  syncMobileChrome();
   renderSearchSummary(null);
+  if(isMobile()&&$('#view-muse')?.classList.contains('on'))setBrowseMode(true);
 }
 const ready=(document.fonts&&document.fonts.ready)?Promise.race([document.fonts.ready,new Promise(r=>setTimeout(r,1500))]):Promise.resolve();
 ready.then(init);
