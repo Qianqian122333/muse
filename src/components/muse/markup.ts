@@ -116,7 +116,35 @@ export const museMarkup = `
       <button class="icon-x clear" id="qClear" type="button" aria-label="Clear search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       <div class="suggest" id="suggest"></div>
     </div>
-    <div class="sum" id="sum"></div>
+    <div class="muse-subhead">
+      <div class="sum" id="sum"></div>
+      <div class="muse-toolbar">
+        <button type="button" class="btn" id="browseToggle" aria-pressed="false">Browse inspiration</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="muse-stage">
+  <div class="browse-view" id="browseView" hidden>
+    <div class="browse-filters">
+      <label class="browse-filter">
+        <span>Canvas</span>
+        <select id="browseCanvas" aria-label="Filter by canvas"></select>
+      </label>
+      <label class="browse-filter">
+        <span>Time</span>
+        <select id="browseTime" aria-label="Sort by time">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="today">Saved today</option>
+          <option value="week">Last 7 days</option>
+        </select>
+      </label>
+      <span class="browse-count" id="browseCount"></span>
+    </div>
+    <div class="browse-scroll">
+      <div class="browse-grid" id="browseGrid"></div>
+    </div>
   </div>
 
   <div class="viewport" id="vp">
@@ -221,12 +249,14 @@ export const museMarkup = `
       <button class="btn primary" type="button" id="emptyAdd">Add cards from Muse</button>
     </div></div>
 
-    <aside class="side" id="detail"></aside>
-    <aside class="side" id="tray">
-      <div class="side-head"><h3>Add cards to this canvas</h3><button class="icon-x" type="button" data-close="tray" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-      <div class="tray-search"><input class="field" id="trayQ" placeholder="Filter by tag or title" aria-label="Filter cards"></div>
-      <div class="tray-list" id="trayList"></div>
-    </aside>
+  </div>
+
+  <aside class="side" id="detail"></aside>
+  <aside class="side" id="tray">
+    <div class="side-head"><h3>Add cards to this canvas</h3><button class="icon-x" type="button" data-close="tray" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="tray-search"><input class="field" id="trayQ" placeholder="Filter by tag or title" aria-label="Filter cards"></div>
+    <div class="tray-list" id="trayList"></div>
+  </aside>
   </div>
 </section>
 

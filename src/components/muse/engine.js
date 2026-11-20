@@ -319,7 +319,7 @@ function renderCanvas(){
 }
 const cardEl=id=>world.querySelector(`.card[data-id="${id}"]`);
 const stickyEl=id=>world.querySelector(`.sticky[data-sid="${id}"]`);
-function rerenderCard(id){const c=canvas(),el=cardEl(id);if(!el||!c.pos[id])return;const tmp=document.createElement('div');tmp.innerHTML=cardHTML(item(id),c.pos[id]);const n=tmp.firstElementChild;n.style.zIndex=el.style.zIndex;if(el.classList.contains('selected'))n.classList.add('selected');el.replaceWith(n);applySearch(false);}
+function rerenderCard(id){const c=canvas(),el=cardEl(id);if(el&&c.pos[id]){const tmp=document.createElement('div');tmp.innerHTML=cardHTML(item(id),c.pos[id]);const n=tmp.firstElementChild;n.style.zIndex=el.style.zIndex;if(el.classList.contains('selected'))n.classList.add('selected');el.replaceWith(n);applySearch(false);}if(browseMode)renderBrowse();}
 
 function bounds(ids){
   const c=canvas();let x1=Infinity,y1=Infinity,x2=-Infinity,y2=-Infinity;
@@ -664,6 +664,7 @@ $('#saveBtn').onclick=saveCanvas;
 /* canvases panel */
 let renaming=null;
 let panelCollapsed=false;
+let browseMode=false;
 function renderPanel(){
   const p=$('#cvPanel');
   const cur=canvas();
@@ -688,7 +689,8 @@ function renderPanel(){
   });
   $('#newCv').onclick=()=>{const c=newCanvas('Untitled canvas');switchCanvas(c.id);renaming=c.id;renderPanel();};
   const ri=$('#renameIn');
-  if(ri){ri.focus();ri.select();const done=()=>{const c=canvas(renaming);if(c&&ri.value.trim())c.name=ri.value.trim();renaming=null;persist();renderPanel();renderSearchSummary();};ri.onkeydown=e=>{if(e.key==='Enter')done();if(e.key==='Escape'){renaming=null;renderPanel();}};ri.onblur=done;}
+  if(ri){ri.focus();ri.select();const done=()=>{const c=canvas(renaming);if(c&&ri.value.trim())c.name=ri.value.trim();renaming=null;persist();renderPanel();renderSearchSummary();if(browseMode)fillBrowseCanvasSelect();};ri.onkeydown=e=>{if(e.key==='Enter')done();if(e.key==='Escape'){renaming=null;renderPanel();}};ri.onblur=done;}
+  if(browseMode)fillBrowseCanvasSelect();
 }
 function newCanvas(name){const c={id:'c'+Date.now().toString(36),name,pos:{},view:null,savedAt:null,dirty:true,stickies:{},ink:[]};state.canvases.push(c);persist();return c;}
 function switchCanvas(id){
@@ -841,7 +843,8 @@ function applySearch(fit){
   $$('.card',world).forEach(el=>{const it=item(el.dataset.id);const m=active&&matches(it,p);el.classList.toggle('hit',!!m);el.classList.toggle('dim',!!active&&!m);if(m)hits.push(it.id);
     $$('.tag',el).forEach(t=>t.classList.toggle('hl',!!m&&p.terms.some(term=>t.dataset.t===term||(term.length>=3&&t.dataset.t.includes(term)))));});
   renderSearchSummary(p,hits);
-  if(fit&&active&&hits.length)fitTo(hits,1);
+  if(fit&&active&&hits.length&&!browseMode)fitTo(hits,1);
+  if(browseMode)renderBrowse();
   return hits;
 }
 function renderSearchSummary(p=lastP,hits){
@@ -1084,6 +1087,88 @@ function saveFromWeb(p,target){
   savedCount++;const b=$('#extBadge');b.textContent=savedCount;b.classList.add('on');
 }
 
+/* ================= browse inspiration ================= */
+function browseSizeClass(it){
+  if(it.type==='article')return 'b-quote';
+  if(it.type==='link')return 'b-short';
+  if(it.type==='video')return 'b-tall';
+  const h=it.art&&it.art.h;
+  if(h&&h>=360)return 'b-tall';
+  if(h&&h<=220)return 'b-short';
+  if(it.img){const n=(it.id||'').charCodeAt((it.id||'').length-1)||0;return n%3===0?'b-tall':n%3===1?'b-short':'';}
+  return '';
+}
+function browseCardHTML(it){
+  const noted=!!(it.note||'').trim();
+  const size=browseSizeClass(it);
+  let body='';
+  if(it.type==='image'||it.type==='video'){
+    body=`<div class="media">${artFor(it)}${it.type==='video'?`<span class="play">${I.play}</span><span class="dur">${esc(it.duration||'')}</span>`:''}</div>`;
+  }else if(it.type==='article'){
+    body=`<blockquote class="quote">${esc(it.text)}</blockquote>`;
+  }else{
+    body=`<div class="linkbox"><span class="fav">${esc((it.source||'?')[0].toUpperCase())}</span><div><div class="lt">${esc(it.title)}</div><div class="lu">${I.link}${esc(it.source)}</div></div></div>`;
+  }
+  const title=it.type==='link'?'':`<div class="mt">${esc(it.title)}</div>`;
+  const tags=(it.tags||[]).slice(0,4).map(t=>`<span class="tag" data-t="${esc(t)}">${esc(t)}</span>`).join('');
+  const onCvs=state.canvases.filter(c=>c.pos[it.id]).map(c=>c.name);
+  const cvLine=onCvs.length?`<div class="ms"><span>${esc(onCvs.slice(0,2).join(' · '))}${onCvs.length>2?'…':''}</span></div>`:'';
+  return `<button type="button" class="card b-card t-${it.type}${size?' '+size:''}${noted?' noted':''}${it.isNew?' is-new':''}" data-id="${it.id}">
+    ${body}
+    <div class="meta">${title}<div class="ms"><span>${esc(it.type==='link'?'Link':it.source)}</span><span>${relDay(it.savedAt)}</span></div>${cvLine}<div class="tags">${tags}</div></div>
+    ${noted?`<div class="note"><div class="nl">${I.pen}NOTE</div><p>${esc(it.note)}</p></div>`:''}
+  </button>`;
+}
+function fillBrowseCanvasSelect(){
+  const sel=$('#browseCanvas');if(!sel)return;
+  const cur=sel.value||'*';
+  sel.innerHTML=`<option value="*">All canvases</option>`+state.canvases.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+  if([...sel.options].some(o=>o.value===cur))sel.value=cur;else sel.value='*';
+}
+function browseItems(){
+  const cv=$('#browseCanvas')?.value||'*';
+  const time=$('#browseTime')?.value||'newest';
+  const p=lastP&&!isEmptyQ(lastP)?lastP:null;
+  const t0=dayStart(Date.now());
+  let list=state.items.slice();
+  if(cv&&cv!=='*'){const c=canvas(cv);list=list.filter(it=>c&&c.pos[it.id]);}
+  if(time==='today')list=list.filter(it=>it.savedAt>=t0);
+  if(time==='week')list=list.filter(it=>it.savedAt>=t0-6*DAY);
+  if(p)list=list.filter(it=>matches(it,p));
+  list.sort((a,b)=>time==='oldest'?a.savedAt-b.savedAt:b.savedAt-a.savedAt);
+  return list;
+}
+function renderBrowse(){
+  const grid=$('#browseGrid'),count=$('#browseCount');if(!grid)return;
+  fillBrowseCanvasSelect();
+  const list=browseItems();
+  if(count)count.textContent=`${list.length} item${list.length!==1?'s':''}`;
+  if(!list.length){
+    grid.innerHTML=`<div class="browse-empty"><h3>No inspiration here</h3><p>Try another canvas or time filter, or clear your search.</p></div>`;
+    return;
+  }
+  grid.innerHTML=list.map(browseCardHTML).join('');
+  $$('.b-card',grid).forEach(el=>{
+    el.onclick=()=>openDetail(el.dataset.id);
+  });
+}
+function setBrowseMode(on){
+  browseMode=!!on;
+  const muse=$('#view-muse'),btn=$('#browseToggle'),bv=$('#browseView');
+  muse?.classList.toggle('browsing',browseMode);
+  bv?.classList.toggle('on',browseMode);
+  if(bv)bv.hidden=!browseMode;
+  if(btn){
+    btn.setAttribute('aria-pressed',browseMode?'true':'false');
+    btn.textContent=browseMode?'Back to canvas':'Browse inspiration';
+  }
+  if(browseMode){setInkTool(null);closeToolPops();closeSide();clearSelection();renderBrowse();}
+  else if(museReady){renderCanvas();if(!canvas().viewSet){fitTo();canvas().viewSet=true;}}
+}
+$('#browseToggle').onclick=()=>setBrowseMode(!browseMode);
+$('#browseCanvas').onchange=renderBrowse;
+$('#browseTime').onchange=renderBrowse;
+
 /* ================= views ================= */
 let museReady=false;
 function setView(v){
@@ -1101,13 +1186,17 @@ function setView(v){
   }
   hideMenus();
   if(v==='muse'){
-    if(pendingFocus.length){state.current='all';clearSelection();qIn.value='';}
-    renderCanvas();
-    if(pendingFocus.length){const ids=pendingFocus.slice();pendingFocus=[];const all=canvas('all');
-      /* show the new cards with their neighbours */
-      fitTo(ids,1);const v=V();if(v.z>0.9){v.x+=0;} canvas().viewSet=true;}
-    else if(!canvas().viewSet){fitTo();canvas().viewSet=true;}
+    if(pendingFocus.length){state.current='all';clearSelection();qIn.value='';if(browseMode)setBrowseMode(false);}
+    if(browseMode)renderBrowse();
+    else{
+      renderCanvas();
+      if(pendingFocus.length){const ids=pendingFocus.slice();pendingFocus=[];
+        fitTo(ids,1);canvas().viewSet=true;}
+      else if(!canvas().viewSet){fitTo();canvas().viewSet=true;}
+    }
     museReady=true;
+  }else if(browseMode){
+    setBrowseMode(false);
   }
 }
 switchView=setView;
@@ -1129,7 +1218,10 @@ $('#resetBtn').onclick=()=>{
   Object.keys(artCache).forEach(k=>{if(!k.startsWith('web-'))delete artCache[k];});
   state=seed();runPendingLayouts();persist();selected.clear();pendingFocus=[];savedCount=0;$('#extBadge').classList.remove('on');
   $$('.saved-mark').forEach(m=>m.remove());$('#extPop')?.classList.remove('on');$('#musePop')?.classList.remove('on');qIn.value='';closeSide();setInkTool(null);closeToolPops();
-  if($('#view-muse').classList.contains('on')){renderCanvas();fitTo();canvas().viewSet=true;}
+  if($('#view-muse').classList.contains('on')){
+    if(browseMode)renderBrowse();
+    else{renderCanvas();fitTo();canvas().viewSet=true;}
+  }
   toast('Demo reset to its starting data');
 };
 
