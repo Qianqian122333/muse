@@ -113,8 +113,15 @@ export const museMarkup = `
   <div class="muse-head">
     <div class="search" id="searchBox">
       <svg class="search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-      <input id="q" type="text" autocomplete="off" placeholder="Search keywords, tags…" aria-label="Search Muse">
-      <button class="icon-x clear" id="qClear" type="button" aria-label="Clear search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <div class="search-field">
+        <textarea id="q" rows="1" autocomplete="off" placeholder="Search keywords, tags…" aria-label="Search Muse"></textarea>
+      </div>
+      <div class="search-actions">
+        <button type="button" class="voice-btn" id="qVoice" title="Voice search (demo)" aria-label="Voice search demo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v3"/></svg>
+        </button>
+        <button class="icon-x clear" id="qClear" type="button" aria-label="Clear search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
       <div class="suggest" id="suggest"></div>
     </div>
     <div class="muse-subhead">

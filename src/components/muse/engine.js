@@ -168,7 +168,7 @@ function seed(){
   /* Capture-page media (black-white / portfolio / blue / ui+interaction) stay OUT of seed
      so "Save to Muse" can demonstrate adding them fresh. */
   const items=[
-    {id:'i3',type:'image',title:'EngagePro social suite',source:'behance.net',tags:['green','branding','social','mobile','bold'],savedAt:D(3,21,40),note:'',img:'/ux-pictures/cosmos_1209608251.webp'},
+    {id:'i3',type:'image',title:'EngagePro social suite',source:'behance.net',tags:['branding','social','mobile','bold'],savedAt:D(3,21,40),note:'',img:'/ux-pictures/blue.webp'},
     {id:'i4',type:'article',title:'On designing for clarity',source:'clarity.journal',text:'Good UX design is not about making things look simple. It is about making complex things feel effortless.',tags:['ux','clarity','principle','minimalism'],savedAt:D(LF,9,30),note:'Same rule for Muse onboarding: one hero action, lots of air.'},
     {id:'i7',type:'image',title:'Oppo finance dashboard',source:'dribbble.com',tags:['dashboard','finance','serif','data','color'],savedAt:D(1,10,20),note:'Big numbers + color blocks. Candidate layout for Muse insights.',img:'/ux-pictures/portfolio-color.webp'},
     {id:'i9',type:'link',title:'Laws of UX · cognitive load',source:'lawsofux.com',tags:['ux','cognitive load','principle','reference'],savedAt:D(LF,14,5),note:'Bookmark for the clarity essay footnotes.'},
@@ -176,20 +176,22 @@ function seed(){
     {id:'i11',type:'image',title:'Startup story templates',source:'behance.net',tags:['orange','social','templates','typography'],savedAt:D(4,15,30),note:'High contrast orange/black. Strong for short takeaway cards.',img:'/ux-pictures/red-black.webp'},
     {id:'i12',type:'video',title:'Green motion experiments',source:'youtube.com',duration:'0:32',tags:['motion','green','interaction','video'],savedAt:D(0,9,12),note:'',img:null,video:'/ux-pictures/interation-green.mp4'},
     {id:'i13',type:'article',title:'White space as a tool',source:'clarity.journal',text:'White space is not unfinished. It is the part of the interface that lets everything else breathe.',tags:['white space','clarity','layout','quote'],savedAt:D(LF,18,20),note:'Use this line in the capture intro.'},
-    {id:'i15',type:'article',title:'Less is a decision',source:'clarity.journal',text:'Simplicity is not the absence of design. It is the result of thoughtful decisions about what to remove.',tags:['simplicity','ux','decision','quote'],savedAt:D(7,20,0),note:''}
+    {id:'i15',type:'article',title:'Less is a decision',source:'clarity.journal',text:'Simplicity is not the absence of design. It is the result of thoughtful decisions about what to remove.',tags:['simplicity','ux','decision','quote'],savedAt:D(7,20,0),note:''},
+    /* Voice-search demo target: green font image from last week */
+    {id:'i16',type:'image',title:'Green font poster',source:'behance.net',tags:['green','font','typography','lettering'],savedAt:D(8,15,40),note:'A green type specimen I saved for lettering references.',img:'/ux-pictures/cosmos_1209608251.webp'}
   ];
-  return {v:7,items,current:'all',newCol:null,canvases:[
+  return {v:8,items,current:'all',newCol:null,canvases:[
     {id:'all',name:'All Inspiration',system:true,pos:{},view:null,savedAt:D(0,9,13),dirty:false,stickies:{},layout:{ids:items.map(i=>i.id),cols:4}},
-    {id:'c1',name:'Clarity moodboard',pos:{},view:null,savedAt:D(LF,14,40),dirty:false,stickies:{},layout:{ids:['i4','i13','i7','i11','i9','i3'],cols:3}},
+    {id:'c1',name:'Clarity moodboard',pos:{},view:null,savedAt:D(LF,14,40),dirty:false,stickies:{},layout:{ids:['i4','i13','i7','i11','i9','i3','i16'],cols:3}},
     {id:'c2',name:'Onboarding references',pos:{},view:null,savedAt:D(2,11,20),dirty:false,stickies:{},layout:{ids:['i10','i12','i15'],cols:3}}
   ]};
 }
 
 /* ================= state & persistence ================= */
-const KEY='muse-demo-v7';
+const KEY='muse-demo-v8';
 let state, selected=new Set();
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
-function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.v===7)return s;}catch(e){}return null;}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.v===8)return s;}catch(e){}return null;}
 const item=id=>state.items.find(i=>i.id===id);
 const canvas=id=>state.canvases.find(c=>c.id===(id||state.current));
 function ensureStickies(c){if(c&&!c.stickies)c.stickies={};return c?c.stickies:{};}
@@ -728,7 +730,8 @@ function renderPanel(){
     const n=Object.keys(c.pos).length;
     if(renaming===c.id)return `<div class="cv-item on"><span class="sw"></span><input id="renameIn" value="${esc(c.name)}" aria-label="Canvas name"></div>`;
     return `<button type="button" class="cv-item${c.id===state.current?' on':''}" data-cv="${c.id}" title="${c.system?'All your saves':'Double-click to rename'}"><span class="sw"></span><span class="nm">${esc(c.name)}</span>${c.dirty?'<span class="cv-dirty" title="Unsaved changes">Unsaved</span>':''}<span class="ct">${n}</span></button>`;
-  }).join('')+`<button type="button" class="cv-item cv-new" id="newCv">${I.plus}<span class="nm">New blank canvas</span></button>`;
+  }).join('')+`<button type="button" class="cv-item cv-new" id="newCv">${I.plus}<span class="nm">New blank canvas</span></button>`+
+  `<div class="cv-time"><span class="cv-time-label">Time</span><div id="cvTimeHost" class="muse-select-host"></div></div>`;
   $('#cvCollapse').onclick=()=>{panelCollapsed=true;renderPanel();};
   $$('[data-cv]',p).forEach(b=>{
     b.onclick=()=>switchCanvas(b.dataset.cv);
@@ -737,6 +740,7 @@ function renderPanel(){
   $('#newCv').onclick=()=>{const c=newCanvas('Untitled canvas');switchCanvas(c.id);renaming=c.id;renderPanel();};
   const ri=$('#renameIn');
   if(ri){ri.focus();ri.select();const done=()=>{const c=canvas(renaming);if(c&&ri.value.trim())c.name=ri.value.trim();renaming=null;persist();renderPanel();renderSearchSummary();if(browseMode)fillBrowseCanvasSelect();};ri.onkeydown=e=>{if(e.key==='Enter')done();if(e.key==='Escape'){renaming=null;renderPanel();}};ri.onblur=done;}
+  fillCanvasTimeSelect();
   if(browseMode)fillBrowseCanvasSelect();
 }
 function newCanvas(name){const c={id:'c'+Date.now().toString(36),name,pos:{},view:null,savedAt:null,dirty:true,stickies:{},ink:[]};state.canvases.push(c);persist();return c;}
@@ -796,7 +800,7 @@ function openDetail(id,focusNote){
   <div class="side-body">
     ${media}
     <div><input class="d-title" id="dTitle" value="${esc(it.title)}" aria-label="Edit title"><div class="d-sub">Saved ${fmtDay(it.savedAt)}, ${fmtTime(it.savedAt)} from ${esc(it.source)}</div></div>
-    <div class="d-sec"><h4><span>${I.pen.replace('<svg','<svg style="color:var(--note)"')}Your note</span><span class="note-state" id="noteState"></span></h4>
+    <div class="d-sec"><h4><span>${I.pen.replace('<svg','<svg style="color:var(--ink)"')}Your note</span><span class="note-state" id="noteState"></span></h4>
       <textarea class="note-area${it.note.trim()?'':' empty-note'}" id="noteArea" placeholder="What does this make you think of? Write a thought, a question, a next step…">${esc(it.note)}</textarea></div>
     <div class="d-sec"><h4><span>${I.spark}Tags</span></h4>
       <div class="chips" id="dTags"></div></div>
@@ -862,8 +866,8 @@ const WD=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'
 const WDS={sun:0,mon:1,tue:2,tues:2,wed:3,thu:4,thur:4,thurs:4,fri:5,sat:6};
 const ZHD='日一二三四五六';
 const ZH=[[/上周([一二三四五六日天])/g,(m,d)=>' last '+WD[ZHD.indexOf(d==='天'?'日':d)]+' '],[/(?:周|星期)([一二三四五六日天])/g,(m,d)=>' '+WD[ZHD.indexOf(d==='天'?'日':d)]+' '],[/上周/g,' last week '],[/(本周|这周)/g,' this week '],[/今天/g,' today '],[/昨天/g,' yesterday '],[/黑色?/g,' black '],[/简洁|清晰/g,' clarity '],[/留白/g,' white space '],[/用户体验|体验/g,' ux '],[/视频/g,' video '],[/文章/g,' article '],[/有?笔记/g,' with notes '],[/极简/g,' minimalism ']];
-const SYN={couch:'sofa',couches:'sofa',settee:'sofa',dark:'black',noir:'black',lamps:'lamp',light:'lighting',chairs:'chair',plants:'plant',colour:'color',vases:'vase',wooden:'wood'};
-const STOP=new Set(['saved','save','from','in','the','a','an','and','on','of','with','my','i','me','that','things','stuff','show','find','all']);
+const SYN={couch:'sofa',couches:'sofa',settee:'sofa',dark:'black',noir:'black',lamps:'lamp',light:'lighting',chairs:'chair',plants:'plant',colour:'color',vases:'vase',wooden:'wood',fonts:'font',lettering:'font',typography:'font'};
+const STOP=new Set(['saved','save','from','in','the','a','an','and','on','of','with','my','i','me','that','things','stuff','show','find','all','want','to','looking','look','need','for','one','some','please','get','got','have','had']);
 function parseQuery(raw){
   let q=' '+raw.toLowerCase()+' ';ZH.forEach(([re,r])=>q=q.replace(re,r));
   const out={terms:[],range:null,dateLabel:'',notes:false,type:null};
@@ -901,16 +905,40 @@ function matches(it,p){
   return p.terms.every(t=>termHit(it,t,hay));
 }
 const qIn=$('#q');let lastP=null;
+function syncSearchField(){
+  if(!qIn)return;
+  const max=parseFloat(getComputedStyle(qIn).maxHeight)||112;
+  const min=isMobile()?40:44;
+  qIn.classList.remove('is-scroll');
+  qIn.style.height='auto';
+  const sh=qIn.scrollHeight;
+  const overflow=sh>max+1;
+  qIn.style.height=Math.max(min,Math.min(sh,max))+'px';
+  qIn.classList.toggle('is-scroll',overflow);
+  if(overflow)qIn.scrollTop=qIn.scrollHeight;
+}
 function applySearch(fit){
   const raw=qIn.value.trim();$('#searchBox').classList.toggle('has',!!raw);
+  syncSearchField();
   const p=raw?parseQuery(raw):null;lastP=p;
-  const active=p&&!isEmptyQ(p);const hits=[];
+  const active=p&&!isEmptyQ(p);
+  const timeOn=canvasTimeFilter&&canvasTimeFilter!=='all';
+  const hits=[];
   $$('.card',world).forEach(el=>{
     const it=item(el.dataset.id);
     if(!it){el.classList.remove('hit','dim');$$('.tag',el).forEach(t=>t.classList.remove('hl'));return;}
-    const m=active&&matches(it,p);
-    el.classList.toggle('hit',!!m);el.classList.toggle('dim',!!active&&!m);if(m)hits.push(it.id);
-    $$('.tag',el).forEach(t=>t.classList.toggle('hl',!!m&&p.terms.some(term=>t.dataset.t===term||(term.length>=2&&t.dataset.t.includes(term)))));
+    const timeOk=inTimeFilter(it,canvasTimeFilter);
+    let showHit=false,dim=false;
+    if(active){
+      showHit=matches(it,p)&&timeOk;
+      dim=!showHit;
+    }else if(timeOn){
+      dim=!timeOk;
+    }
+    el.classList.toggle('hit',!!showHit);
+    el.classList.toggle('dim',!!dim);
+    if(showHit)hits.push(it.id);
+    $$('.tag',el).forEach(t=>t.classList.toggle('hl',!!showHit&&p&&p.terms.some(term=>t.dataset.t===term||(term.length>=2&&t.dataset.t.includes(term)))));
   });
   renderSearchSummary(p,hits);
   if(fit&&active&&hits.length&&!browseMode)fitTo(hits,1);
@@ -931,17 +959,65 @@ function renderSearchSummary(p=lastP,hits){
   if($('#seeAll'))$('#seeAll').onclick=()=>{switchCanvas('all');applySearch(true);};
   if($('#zoomHits'))$('#zoomHits').onclick=()=>applySearch(true);
 }
-qIn.addEventListener('input',()=>{applySearch(false);$('#suggest').classList.toggle('on',!qIn.value.trim());});
-qIn.addEventListener('keydown',e=>{if(e.key==='Enter'){applySearch(true);$('#suggest').classList.remove('on');}if(e.key==='Escape'){qIn.value='';applySearch(false);qIn.blur();}});
+qIn.addEventListener('input',()=>{syncSearchField();applySearch(false);$('#suggest').classList.toggle('on',!qIn.value.trim());});
+qIn.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();applySearch(true);$('#suggest').classList.remove('on');}
+  if(e.key==='Escape'){qIn.value='';syncSearchField();applySearch(false);qIn.blur();}
+});
 qIn.addEventListener('focus',()=>{if(!qIn.value.trim())renderSuggest();});
 qIn.addEventListener('blur',()=>setTimeout(()=>$('#suggest').classList.remove('on'),150));
-$('#qClear').onclick=()=>{qIn.value='';applySearch(false);if(!isMobile()&&!browseMode)fitTo();};
+$('#qClear').onclick=()=>{qIn.value='';syncSearchField();applySearch(false);if(!isMobile()&&!browseMode)fitTo();};
+const VOICE_DEMO_PHRASE='I want to find a green font image I saved last week.';
+let voiceDemoT=null,voiceDemoBusy=false;
+function runVoiceSearchDemo(){
+  const btn=$('#qVoice');if(!btn||voiceDemoBusy)return;
+  voiceDemoBusy=true;
+  clearTimeout(voiceDemoT);
+  $('#suggest')?.classList.remove('on');
+  btn.classList.add('listening');
+  btn.setAttribute('aria-pressed','true');
+  qIn.value='';
+  applySearch(false);
+  qIn.focus();
+  /* brief “listening” beat, then type the demo transcript */
+  voiceDemoT=setTimeout(()=>{
+    let i=0;
+    const tick=()=>{
+      i+=1;
+      qIn.value=VOICE_DEMO_PHRASE.slice(0,i);
+      applySearch(false);
+      if(i<VOICE_DEMO_PHRASE.length){
+        voiceDemoT=setTimeout(tick,18+Math.random()*22);
+        return;
+      }
+      btn.classList.remove('listening');
+      btn.setAttribute('aria-pressed','false');
+      voiceDemoBusy=false;
+      const hits=applySearch(true);
+      if(hits?.includes('i16')||state.items.some(it=>it.id==='i16'&&matches(it,parseQuery(qIn.value)))){
+        if(!browseMode){
+          switchCanvas('all');
+          applySearch(true);
+          const el=cardEl('i16');
+          if(el){el.style.zIndex=++zTop;el.classList.add('hit');}
+        }else{
+          renderBrowse();
+          const card=$('#browseGrid .b-card[data-id="i16"]');
+          if(card)card.scrollIntoView({behavior:'smooth',block:'center'});
+        }
+        toast('Found your green font image from last week');
+      }
+    };
+    tick();
+  },700);
+}
+$('#qVoice')?.addEventListener('click',()=>runVoiceSearchDemo());
 function renderSuggest(){
   const counts={};state.items.forEach(it=>it.tags.forEach(t=>counts[t]=(counts[t]||0)+1));
   const top=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10).map(e=>e[0]);
-  const tries=['clarity ux','white space','yesterday','videos with notes','ux minimalism'];
+  const tries=['clarity ux','white space','yesterday','videos with notes','voice: green font last week'];
   const sg=$('#suggest');
-  sg.innerHTML=`<h4>Try a search</h4><div class="chips">${tries.map(t=>`<span class="chip" data-s="${t}">${t}</span>`).join('')}</div><h4>Your most used tags</h4><div class="chips">${top.map(t=>`<span class="chip" data-s="${esc(t)}">${esc(t)}</span>`).join('')}</div>`;
+  sg.innerHTML=`<h4>Try a search</h4><div class="chips">${tries.map(t=>`<span class="chip" data-s="${t.startsWith('voice:')?'I want to find a green font image I saved last week.':t}">${t}</span>`).join('')}</div><h4>Your most used tags</h4><div class="chips">${top.map(t=>`<span class="chip" data-s="${esc(t)}">${esc(t)}</span>`).join('')}</div>`;
   sg.classList.add('on');
   $$('[data-s]',sg).forEach(ch=>ch.onmousedown=e=>{e.preventDefault();qIn.value=ch.dataset.s;sg.classList.remove('on');applySearch(true);});
 }
@@ -1295,12 +1371,36 @@ function browseCardHTML(it){
 }
 let browseCanvasFilter='*';
 let browseTimeFilter='newest';
+let canvasTimeFilter='all';
 const BROWSE_TIME_OPTS=[
   {value:'newest',label:'Newest first'},
   {value:'oldest',label:'Oldest first'},
   {value:'today',label:'Saved today'},
+  {value:'days3',label:'Past 3 days'},
   {value:'week',label:'Last 7 days'},
+  {value:'month',label:'Past month'},
 ];
+const CANVAS_TIME_OPTS=[
+  {value:'all',label:'All time'},
+  {value:'today',label:'Today'},
+  {value:'days3',label:'Past 3 days'},
+  {value:'week',label:'Past week'},
+  {value:'month',label:'Past month'},
+];
+function timeFilterFrom(key){
+  const t0=dayStart(Date.now());
+  if(key==='today')return t0;
+  if(key==='days3')return t0-2*DAY;
+  if(key==='week')return t0-6*DAY;
+  if(key==='month')return t0-29*DAY;
+  return null;
+}
+function inTimeFilter(it,key){
+  if(!key||key==='all'||key==='newest'||key==='oldest')return true;
+  const from=timeFilterFrom(key);
+  if(from==null)return true;
+  return it.savedAt!=null&&it.savedAt>=from;
+}
 function browseCanvasOptions(){
   return [{value:'*',label:'All canvases'},...state.canvases.filter(c=>!c.system).map(c=>({value:c.id,label:c.name}))];
 }
@@ -1323,15 +1423,24 @@ function fillBrowseTimeSelect(){
     onChange:v=>{browseTimeFilter=v;renderBrowse();},
   });
 }
+function fillCanvasTimeSelect(){
+  const host=$('#cvTimeHost');if(!host)return;
+  if(!CANVAS_TIME_OPTS.some(o=>o.value===canvasTimeFilter))canvasTimeFilter='all';
+  mountMuseSelect(host,{
+    value:canvasTimeFilter,
+    options:CANVAS_TIME_OPTS,
+    ariaLabel:'Filter canvas by time',
+    triggerClassName:'muse-select-trigger cv-time-trigger',
+    onChange:v=>{canvasTimeFilter=v;applySearch(false);},
+  });
+}
 function browseItems(){
   const cv=browseCanvasFilter||'*';
   const time=browseTimeFilter||'newest';
   const p=lastP&&!isEmptyQ(lastP)?lastP:null;
-  const t0=dayStart(Date.now());
   let list=state.items.slice();
   if(cv&&cv!=='*'){const c=canvas(cv);list=list.filter(it=>c&&c.pos[it.id]);}
-  if(time==='today')list=list.filter(it=>it.savedAt>=t0);
-  if(time==='week')list=list.filter(it=>it.savedAt>=t0-6*DAY);
+  list=list.filter(it=>inTimeFilter(it,time));
   if(p)list=list.filter(it=>matches(it,p));
   list.sort((a,b)=>time==='oldest'?a.savedAt-b.savedAt:b.savedAt-a.savedAt);
   return list;
