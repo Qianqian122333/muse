@@ -157,14 +157,19 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .ep-title{
   width:100%;box-sizing:border-box;
   border:1px solid var(--line);background:var(--bg);border-radius:9px;
-  padding:7px 10px;font:inherit;font-weight:500;font-size:13.5px;line-height:1.3;color:var(--ink);
+  padding:7px 10px;font:inherit;font-weight:500;font-size:13.5px;line-height:1.35;color:var(--ink);
+  resize:none;overflow:hidden;min-height:36px;max-height:120px;field-sizing:content;
 }
+.voice-field > .ep-title{padding-right:40px}
 .ep-title::placeholder{color:var(--muted);font-weight:400}
 .ep-title:hover{border-color:var(--muted)}
 .ep-title:focus{outline:none;border-color:var(--ink)}
+.ep-title.is-scroll,#epNote.is-scroll,.auto-grow.is-scroll{overflow-y:auto}
 .ep-src{font-size:12px;color:var(--muted)}
 .ai-label{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:5px;margin-bottom:7px}
-.ai-label svg{width:13px;height:13px;color:var(--accent)}
+.ai-label svg:not(.voice-btn svg){width:13px;height:13px;color:var(--accent)}
+.ai-label .voice-btn{margin-left:auto;width:24px;height:24px}
+.ai-label .voice-btn svg{width:14px;height:14px}
 .chips{display:flex;flex-wrap:wrap;gap:5px;min-height:24px}
 .chip{font-size:12px;padding:3px 9px;border-radius:99px;background:var(--chip);color:var(--ink);display:inline-flex;align-items:center;gap:4px;animation:chipin .25s ease both}
 @keyframes chipin{from{opacity:0;transform:scale(.85)}}
@@ -207,10 +212,17 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 /* ---------- Muse view ---------- */
 #view-muse{flex-direction:column}
 .muse-head{flex:none;padding:10px 28px 12px;display:flex;flex-direction:column;align-items:flex-start;gap:8px;position:relative;z-index:30}
-.search{position:relative;width:min(420px,100%);border-bottom:1px solid var(--line)}
+.search{
+  position:relative;width:min(420px,100%);border-bottom:1px solid var(--line);
+  display:grid;grid-template-columns:22px minmax(0,1fr) auto;grid-template-rows:auto auto;
+  align-items:start;column-gap:10px;
+}
 .search:focus-within{border-bottom-color:var(--ink)}
-.search-ico{position:absolute;left:0;top:6px;width:22px;height:22px;color:var(--muted);pointer-events:none;z-index:1}
-.search-field{margin:0 64px 0 32px;min-width:0}
+.search-ico{
+  grid-column:1;grid-row:1;position:static;width:22px;height:22px;margin-top:11px;
+  color:var(--muted);pointer-events:none;flex:none;display:block;
+}
+.search-field{grid-column:2;grid-row:1;margin:0;min-width:0}
 .search textarea,#q{
   display:block;width:100%;box-sizing:border-box;
   min-height:44px;max-height:112px;height:44px;
@@ -227,24 +239,40 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .search textarea::-webkit-scrollbar-thumb{background:rgba(40,40,40,.28);border-radius:99px;border:2px solid transparent;background-clip:padding-box}
 .search textarea::-webkit-scrollbar-track{background:transparent}
 .search-actions{
-  position:absolute;right:0;top:4px;display:flex;align-items:center;gap:2px;
-  z-index:2;background:var(--bg);
+  grid-column:3;grid-row:1;position:static;margin-top:8px;
+  display:flex;align-items:center;gap:2px;z-index:2;background:transparent;
 }
-.search .voice-btn{
+.voice-btn{
   width:28px;height:28px;border:0;background:transparent;border-radius:8px;
   color:var(--muted);display:grid;place-items:center;padding:0;cursor:pointer;flex:none;
 }
-.search .voice-btn svg{width:18px;height:18px;display:block}
-.search .voice-btn:hover{color:var(--ink);background:var(--chip)}
-.search .voice-btn.listening{color:var(--ink);background:var(--chip)}
-.search .voice-btn.listening svg{animation:voicePulse 1s ease-in-out infinite}
+.voice-btn svg{width:18px;height:18px;display:block}
+.voice-btn:hover{color:var(--ink);background:var(--chip)}
+.voice-btn.listening{color:var(--ink);background:var(--chip)}
+.voice-btn.listening svg{animation:voicePulse 1s ease-in-out infinite}
 @keyframes voicePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.55;transform:scale(1.08)}}
 .search .clear{display:none;width:28px;height:28px;border:0;background:transparent;border-radius:8px;color:var(--muted);flex:none}
 .search .clear:hover{color:var(--ink);background:var(--chip)}
 .search.has .clear{display:grid;place-items:center}
-.search.has .search-field{margin-right:64px}
-.search:not(.has) .search-field{margin-right:36px}
-.suggest{position:absolute;top:calc(100% + 8px);left:0;right:0;min-width:280px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-up);padding:14px;display:none;text-align:left}
+.suggest{
+  grid-column:1/-1;grid-row:2;position:relative;top:auto;left:auto;right:auto;
+  min-width:0;margin-top:8px;background:var(--surface);border:1px solid var(--line);
+  border-radius:14px;box-shadow:var(--shadow-up);padding:14px;display:none;text-align:left;z-index:5;
+}
+.voice-field{position:relative;width:100%;min-width:0}
+.voice-field > .field,
+.voice-field > .d-title,
+.voice-field > .ep-title,
+.voice-field > .note-area,
+.voice-field > input,
+.voice-field > textarea{width:100%;box-sizing:border-box;padding-right:40px}
+.voice-field > .voice-btn{
+  position:absolute;right:6px;top:50%;transform:translateY(-50%);z-index:2;
+}
+.voice-field-area > .voice-btn,
+.voice-field > textarea + .voice-btn{
+  top:10px;transform:none;
+}
 .suggest.on{display:block}
 .suggest h4{margin:0 0 8px;font-size:11.5px;font-weight:500;color:var(--muted)}
 .suggest .chips{margin-bottom:14px}
@@ -366,6 +394,10 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .sticky.dragging{cursor:grabbing;box-shadow:var(--shadow-up);transition:none;z-index:20}
 .sticky.dragging .sticky-text{pointer-events:none;cursor:grabbing}
 .sticky-bar{display:flex;align-items:center;justify-content:space-between;padding:6px 8px 4px;font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--sticky-ink);cursor:grab}
+.sticky-bar-actions{display:flex;align-items:center;gap:2px}
+.sticky .sticky-voice{width:22px;height:22px;color:var(--sticky-ink);border-radius:6px}
+.sticky .sticky-voice svg{width:13px;height:13px}
+.sticky .sticky-voice:hover{background:rgba(0,0,0,.06);color:var(--ink)}
 .sticky-del{border:0;background:transparent;width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:var(--sticky-ink);cursor:pointer;padding:0}
 .sticky-del:hover{background:rgba(0,0,0,.06);color:var(--ink)}
 .sticky-del svg{width:12px;height:12px}
@@ -409,11 +441,9 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .cv-new:hover{color:var(--ink)}
 .cv-new svg{width:16px;height:16px}
 .cv-tip{font-size:11px;color:var(--muted);padding:4px 8px 2px}
-.cv-time{
-  display:flex;align-items:center;gap:8px;
-  margin-top:8px;padding:8px 8px 4px;border-top:1px solid var(--line);
-}
-.cv-time-label{font-size:11.5px;font-weight:500;color:var(--muted);flex:none}
+.cv-filters{margin-top:8px;padding:8px 8px 4px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+.cv-time{display:flex;align-items:center;gap:8px}
+.cv-time-label{font-size:11.5px;font-weight:500;color:var(--muted);flex:none;min-width:2.75rem}
 .cv-time .muse-select-host{flex:1;min-width:0}
 .cv-time-trigger{height:28px!important;min-height:28px;font-size:12px;border-radius:8px;padding:0 8px}
 
@@ -582,19 +612,33 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .site .takeaways li{margin-bottom:6px}
 .tray-it .th img,.tray-it .th video{width:100%;height:100%;object-fit:cover;display:block}
 .d-quote{font-family:var(--display);font-size:26px;line-height:1.22;margin:0;padding:6px 0}
-.d-title{font-family:var(--display);font-size:26px;line-height:1.15;margin:0;font-weight:500;letter-spacing:-.02em;text-wrap:balance;width:100%;border:1px solid transparent;border-radius:8px;padding:4px 6px;margin-left:-6px;background:transparent;color:var(--ink);resize:none}
-.d-title:hover{border-color:var(--line);background:var(--bg)}
-.d-title:focus{outline:none;border-color:var(--accent);background:var(--bg)}
+.d-title{
+  font-family:var(--display);font-size:22px;line-height:1.25;margin:0;font-weight:500;letter-spacing:-.02em;
+  width:100%;box-sizing:border-box;
+  border:1px solid var(--line);border-radius:10px;padding:8px 40px 8px 12px;
+  background:var(--bg);color:var(--ink);resize:none;overflow:hidden;
+  min-height:42px;max-height:160px;field-sizing:content;
+}
+.d-title:hover{border-color:var(--muted)}
+.d-title:focus{outline:none;border-color:var(--ink);background:var(--bg)}
 .d-sub{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.5}
 .d-sec h4{margin:0 0 8px;font-size:11.5px;font-weight:500;color:var(--muted);display:flex;align-items:center;gap:6px;justify-content:space-between}
 .d-sec h4 span{display:flex;align-items:center;gap:5px}
-.d-sec h4 svg{width:13px;height:13px;color:var(--accent)}
+.d-sec h4 > span svg{width:13px;height:13px;color:var(--accent)}
+.d-sec h4 .voice-btn{width:24px;height:24px;flex:none}
+.d-sec h4 .voice-btn svg{width:14px;height:14px}
 .d-sec .chips .chip{animation:none}
 .tag-input{border:1px dashed var(--line);background:transparent;border-radius:99px;padding:3px 9px;font:inherit;font-size:12px;width:90px;color:var(--ink)}
 .tag-input:focus{outline:none;border-color:var(--accent);border-style:solid;width:120px}
-.note-area{width:100%;min-height:130px;resize:vertical;border:1px solid var(--line);border-left:3px solid var(--ink);background:var(--note-bg);border-radius:10px;padding:12px;font:inherit;font-size:14px;line-height:1.55;color:var(--ink)}
+.note-area{width:100%;min-height:130px;max-height:360px;resize:vertical;border:1px solid var(--line);border-left:3px solid var(--ink);background:var(--note-bg);border-radius:10px;padding:12px 40px 12px 12px;font:inherit;font-size:14px;line-height:1.55;color:var(--ink);box-sizing:border-box;overflow:hidden;field-sizing:content}
 .note-area:focus{outline:none;border-color:var(--ink)}
 .note-area.empty-note{background:var(--bg);border-left-color:var(--line)}
+.auto-grow{overflow:hidden}
+textarea.auto-grow:not(.note-area){resize:none}
+.note-area.auto-grow{resize:vertical}
+.field.auto-grow{min-height:36px;line-height:1.4}
+#epNote.auto-grow{min-height:52px;max-height:160px;line-height:1.45}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .note-state{font-size:11.5px;color:var(--muted);font-weight:400}
 .tray-search{margin:0 16px 10px}
 .tray-list{flex:1;overflow:auto;padding:0 10px 16px;display:flex;flex-direction:column;gap:2px}
@@ -667,13 +711,10 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
   .ext-pop{top:56px;right:8px;left:8px;width:auto;max-width:none}
 
   .muse-head{padding:8px 14px 10px;gap:6px}
-  .search{width:100%}
-  .search-ico{width:18px;height:18px;bottom:9px}
-  .search-field{margin-left:28px}
+  .search{width:100%;grid-template-columns:18px minmax(0,1fr) auto;column-gap:8px}
+  .search-ico{width:18px;height:18px;margin-top:11px}
+  .search-actions{margin-top:6px}
   .search textarea,#q{font-size:16px;min-height:40px;height:40px;max-height:104px;padding:4px 4px 8px 0;line-height:32px}
-  .search:not(.has) .search-field{margin-right:36px}
-  .search.has .search-field{margin-right:64px}
-  .search .clear{bottom:9px}
   .muse-subhead{gap:10px;align-items:flex-end}
   .sum{font-size:12px}
   .muse-toolbar,.browse-switch-host{display:none}

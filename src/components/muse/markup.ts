@@ -143,6 +143,10 @@ export const museMarkup = `
           <span>Time</span>
           <div id="browseTimeHost" class="muse-select-host"></div>
         </label>
+        <label class="browse-filter">
+          <span>Notes</span>
+          <div id="browseNoteHost" class="muse-select-host"></div>
+        </label>
         <span class="browse-count" id="browseCount"></span>
       </div>
       <div class="browse-scroll"><div class="browse-grid" id="browseGrid"></div></div>
@@ -192,8 +196,18 @@ export const museMarkup = `
             <div class="upload-preview" id="videoPreview" hidden></div>
           </div>
           <div class="card-tab-pane" data-pane="text">
-            <input class="field" id="cardTitle" placeholder="Title" aria-label="Card title">
-            <textarea class="field" id="cardBody" rows="4" placeholder="Write your inspiration…" aria-label="Card text"></textarea>
+            <div class="voice-field voice-field-area">
+              <textarea class="field auto-grow" id="cardTitle" rows="1" placeholder="Title" aria-label="Card title"></textarea>
+              <button type="button" class="voice-btn" id="cardTitleVoice" title="Voice input (demo)" aria-label="Voice input demo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v3"/></svg>
+              </button>
+            </div>
+            <div class="voice-field voice-field-area">
+              <textarea class="field auto-grow" id="cardBody" rows="4" placeholder="Write your inspiration…" aria-label="Card text"></textarea>
+              <button type="button" class="voice-btn" id="cardBodyVoice" title="Voice input (demo)" aria-label="Voice input demo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v3"/></svg>
+              </button>
+            </div>
           </div>
           <button type="button" class="btn primary tool-pop-go" id="cardCreate">Create new card</button>
         </div>

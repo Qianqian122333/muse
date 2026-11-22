@@ -34,8 +34,67 @@ const I={
   open:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 3h7v7"/><path d="M21 3l-9 9"/><path d="M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg>',
   trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
   chevL:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>',
-  chevR:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>'
+  chevR:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+  mic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v3"/></svg>'
 };
+const voiceBtnHTML=(id='',{cls='',dataVoice=''}={})=>`<button type="button" class="voice-btn${cls?` ${cls}`:''}" ${id?`id="${id}" `:''}${dataVoice?`data-voice="${dataVoice}" `:''}title="Voice input (demo)" aria-label="Voice input demo">${I.mic}</button>`;
+const VOICE_DEMO={
+  search:'I want to find a green font image I saved last week.',
+  note:'This would be great for the onboarding flow — especially the first-run empty state and the save confirmation.',
+  title:'Clarity moodboard reference for the onboarding hero and empty states',
+  thought:'Keep the hero action obvious and leave room to breathe.',
+  tag:'onboarding',
+  canvas:'Clarity moodboard',
+};
+let voiceDemoBusy=false;
+function autosizeField(el,{min=0,max=280}={}){
+  if(!el||el.tagName!=='TEXTAREA')return;
+  const cs=getComputedStyle(el);
+  const minH=min||(parseFloat(cs.minHeight)||0)||(parseFloat(cs.lineHeight)||20)+parseFloat(cs.paddingTop||0)+parseFloat(cs.paddingBottom||0);
+  const maxH=max||parseFloat(cs.maxHeight)||280;
+  el.style.height='auto';
+  const sh=el.scrollHeight;
+  const overflow=sh>maxH+1;
+  el.style.height=Math.max(minH,Math.min(sh,maxH))+'px';
+  el.classList.toggle('is-scroll',overflow);
+  if(overflow)el.scrollTop=el.scrollHeight;
+}
+function bindAutosize(el,opts){
+  if(!el||el.tagName!=='TEXTAREA')return;
+  const sync=()=>autosizeField(el,opts);
+  el.addEventListener('input',sync);
+  requestAnimationFrame(sync);
+  return sync;
+}
+function runVoiceIntoField(btn,input,{phrase,onUpdate,onDone,clear=true}={}){
+  if(!btn||!input||!phrase||voiceDemoBusy||btn.classList.contains('listening'))return;
+  voiceDemoBusy=true;
+  btn.classList.add('listening');
+  btn.setAttribute('aria-pressed','true');
+  if(clear)input.value='';
+  onUpdate?.(input);
+  autosizeField(input);
+  input.focus();
+  setTimeout(()=>{
+    let i=0;
+    const tick=()=>{
+      i+=1;
+      input.value=phrase.slice(0,i);
+      onUpdate?.(input);
+      autosizeField(input);
+      if(i<phrase.length){setTimeout(tick,18+Math.random()*22);return;}
+      btn.classList.remove('listening');
+      btn.setAttribute('aria-pressed','false');
+      voiceDemoBusy=false;
+      onDone?.(input);
+    };
+    tick();
+  },550);
+}
+function bindVoiceDemo(btn,input,opts){
+  if(!btn||!input)return;
+  btn.onclick=e=>{e.preventDefault();e.stopPropagation();runVoiceIntoField(btn,input,opts);};
+}
 
 /* ================= illustrations (simple SVG stand-ins for saved images) ================= */
 let svgN=0;
@@ -277,7 +336,10 @@ function stickyHTML(id,s){
   return `<div class="sticky" data-sid="${id}" style='left:${s.x}px;top:${s.y}px;--sticky-bg:${bg};--sticky-ink:${ink};--sticky-font:${font};--sticky-size:${size}'>
     <div class="sticky-bar">
       <span>Sticky</span>
-      <button type="button" class="sticky-del" data-del="${id}" aria-label="Delete sticky note">${I.x}</button>
+      <div class="sticky-bar-actions">
+        ${voiceBtnHTML(`stickyVoice-${id}`,{cls:'sticky-voice',dataVoice:id})}
+        <button type="button" class="sticky-del" data-del="${id}" aria-label="Delete sticky note">${I.x}</button>
+      </div>
     </div>
     <textarea class="sticky-text" data-sid="${id}" placeholder="Write an idea…" rows="5">${esc(s.text||'')}</textarea>
   </div>`;
@@ -310,6 +372,19 @@ function bindStickies(){
       c.stickies[sid].text=ta.value;markDirty();
     };
     ta.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();exitStickyEdit();}};
+  });
+  $$('.sticky-voice',world).forEach(btn=>{
+    btn.onpointerdown=e=>e.stopPropagation();
+    const sid=btn.dataset.voice;
+    const ta=world.querySelector(`.sticky-text[data-sid="${sid}"]`);
+    bindVoiceDemo(btn,ta,{
+      phrase:VOICE_DEMO.note,
+      onUpdate:el=>{
+        const c=canvas();ensureStickies(c);
+        if(!c.stickies[sid])return;
+        c.stickies[sid].text=el.value;markDirty();
+      },
+    });
   });
   $$('.sticky-del',world).forEach(btn=>{
     btn.onpointerdown=e=>e.stopPropagation();
@@ -379,7 +454,7 @@ function capturePtr(id){
 }
 vp.addEventListener('pointerdown',e=>{
   if(e.button!==0)return;
-  if(e.target.closest('.floating,.side,.add-note,.sticky-del,.muse-pop'))return;
+  if(e.target.closest('.floating,.side,.add-note,.sticky-del,.sticky-voice,.muse-pop'))return;
   hideMenus();
   const sticky=e.target.closest('.sticky');
   const card=e.target.closest('.card');
@@ -642,6 +717,10 @@ function createTextInspiration(){
   closeToolPops();
   openSaveSheet(it,finalTags,{mount:'#musePop',sourceLabel:'written'});
 }
+bindAutosize($('#cardTitle'),{min:36,max:120});
+bindAutosize($('#cardBody'),{min:88,max:220});
+bindVoiceDemo($('#cardTitleVoice'),$('#cardTitle'),{phrase:VOICE_DEMO.title});
+bindVoiceDemo($('#cardBodyVoice'),$('#cardBody'),{phrase:VOICE_DEMO.note});
 $('#addStickyBtn').onclick=()=>{setInkTool(null);renderStickyPop();openToolPop('stickyPop','addStickyBtn');};
 $('#stickyPlace').onclick=addSticky;
 $('#newCardBtn').onclick=()=>{setInkTool(null);openToolPop('cardMenuPop','newCardBtn');};
@@ -731,7 +810,10 @@ function renderPanel(){
     if(renaming===c.id)return `<div class="cv-item on"><span class="sw"></span><input id="renameIn" value="${esc(c.name)}" aria-label="Canvas name"></div>`;
     return `<button type="button" class="cv-item${c.id===state.current?' on':''}" data-cv="${c.id}" title="${c.system?'All your saves':'Double-click to rename'}"><span class="sw"></span><span class="nm">${esc(c.name)}</span>${c.dirty?'<span class="cv-dirty" title="Unsaved changes">Unsaved</span>':''}<span class="ct">${n}</span></button>`;
   }).join('')+`<button type="button" class="cv-item cv-new" id="newCv">${I.plus}<span class="nm">New blank canvas</span></button>`+
-  `<div class="cv-time"><span class="cv-time-label">Time</span><div id="cvTimeHost" class="muse-select-host"></div></div>`;
+  `<div class="cv-filters">
+    <div class="cv-time"><span class="cv-time-label">Time</span><div id="cvTimeHost" class="muse-select-host"></div></div>
+    <div class="cv-time"><span class="cv-time-label">Notes</span><div id="cvNoteHost" class="muse-select-host"></div></div>
+  </div>`;
   $('#cvCollapse').onclick=()=>{panelCollapsed=true;renderPanel();};
   $$('[data-cv]',p).forEach(b=>{
     b.onclick=()=>switchCanvas(b.dataset.cv);
@@ -740,7 +822,7 @@ function renderPanel(){
   $('#newCv').onclick=()=>{const c=newCanvas('Untitled canvas');switchCanvas(c.id);renaming=c.id;renderPanel();};
   const ri=$('#renameIn');
   if(ri){ri.focus();ri.select();const done=()=>{const c=canvas(renaming);if(c&&ri.value.trim())c.name=ri.value.trim();renaming=null;persist();renderPanel();renderSearchSummary();if(browseMode)fillBrowseCanvasSelect();};ri.onkeydown=e=>{if(e.key==='Enter')done();if(e.key==='Escape'){renaming=null;renderPanel();}};ri.onblur=done;}
-  fillCanvasTimeSelect();
+  syncCanvasFilterSelects();
   if(browseMode)fillBrowseCanvasSelect();
 }
 function newCanvas(name){const c={id:'c'+Date.now().toString(36),name,pos:{},view:null,savedAt:null,dirty:true,stickies:{},ink:[]};state.canvases.push(c);persist();return c;}
@@ -799,13 +881,22 @@ function openDetail(id,focusNote){
   detail.innerHTML=`<div class="side-head"><h3>${{image:'Image',video:'Video',article:'Text snippet',link:'Link'}[it.type]}</h3><button class="icon-x" type="button" data-close="detail" aria-label="Close">${I.x}</button></div>
   <div class="side-body">
     ${media}
-    <div><input class="d-title" id="dTitle" value="${esc(it.title)}" aria-label="Edit title"><div class="d-sub">Saved ${fmtDay(it.savedAt)}, ${fmtTime(it.savedAt)} from ${esc(it.source)}</div></div>
+    <div class="voice-field voice-field-area">
+      <textarea class="d-title field auto-grow" id="dTitle" rows="1" aria-label="Edit title" placeholder="Title">${esc(it.title)}</textarea>
+      ${voiceBtnHTML('dTitleVoice')}
+    </div>
+    <div class="d-sub">Saved ${fmtDay(it.savedAt)}, ${fmtTime(it.savedAt)} from ${esc(it.source)}</div>
     <div class="d-sec"><h4><span>${I.pen.replace('<svg','<svg style="color:var(--ink)"')}Your note</span><span class="note-state" id="noteState"></span></h4>
-      <textarea class="note-area${it.note.trim()?'':' empty-note'}" id="noteArea" placeholder="What does this make you think of? Write a thought, a question, a next step…">${esc(it.note)}</textarea></div>
-    <div class="d-sec"><h4><span>${I.spark}Tags</span></h4>
+      <div class="voice-field voice-field-area">
+        <textarea class="note-area auto-grow${it.note.trim()?'':' empty-note'}" id="noteArea" rows="4" placeholder="What does this make you think of? Write a thought, a question, a next step…">${esc(it.note)}</textarea>
+        ${voiceBtnHTML('noteVoice')}
+      </div></div>
+    <div class="d-sec"><h4><span>${I.spark}Tags</span>${voiceBtnHTML('dTagVoice')}</h4>
       <div class="chips" id="dTags"></div></div>
-    <div class="d-sec"><h4><span>On canvases</span></h4>
-      <div class="chips">${inCanvases.map(n=>`<span class="chip">${esc(n)}</span>`).join('')}<button class="btn" type="button" id="dAdd" style="padding:3px 10px;font-size:12px">${I.plus}Add to canvas</button></div></div>
+    <div class="d-sec"><h4><span>On canvases</span>${voiceBtnHTML('dCanvasVoice')}</h4>
+      <div class="chips" id="dCanvases">${inCanvases.map(n=>`<span class="chip">${esc(n)}</span>`).join('')}<button class="btn" type="button" id="dAdd" style="padding:3px 10px;font-size:12px">${I.plus}Add to canvas</button></div>
+      <input type="text" class="sr-only" id="dCanvasIn" aria-hidden="true" tabindex="-1">
+    </div>
   </div>`;
   detail.classList.add('on');
   renderDetailTags(it);
@@ -821,25 +912,75 @@ function openDetail(id,focusNote){
     if(hint)hint.onclick=e=>{e.preventDefault();e.stopPropagation();vid.play().catch(()=>{});};
   }
   const titleEl=$('#dTitle');let titleTmr;
-  if(titleEl){
-    titleEl.oninput=()=>{
-      const next=titleEl.value.trim()||'Untitled';
-      it.title=next;
-      clearTimeout(titleTmr);
-      titleTmr=setTimeout(()=>{persist();rerenderCard(id);},300);
-    };
-    titleEl.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();titleEl.blur();}};
-  }
+  const syncTitleSize=bindAutosize(titleEl,{min:42,max:160});
+  const commitTitleLive=()=>{
+    const next=(titleEl?.value||'').trim()||'Untitled';
+    it.title=next;
+    syncTitleSize?.();
+    clearTimeout(titleTmr);
+    titleTmr=setTimeout(()=>{persist();rerenderCard(id);},300);
+  };
+  if(titleEl)titleEl.oninput=commitTitleLive;
+  bindVoiceDemo($('#dTitleVoice'),titleEl,{
+    phrase:VOICE_DEMO.title,
+    onUpdate:()=>commitTitleLive(),
+    onDone:()=>{persist();rerenderCard(id);toast('Title updated');},
+  });
   const na=$('#noteArea');let tmr;
-  na.oninput=()=>{it.note=na.value;na.classList.toggle('empty-note',!na.value.trim());$('#noteState').textContent='Saving…';clearTimeout(tmr);tmr=setTimeout(()=>{persist();rerenderCard(id);$('#noteState').textContent='Note saved';},350);};
+  const syncNoteSize=bindAutosize(na,{min:130,max:360});
+  const commitNoteLive=()=>{
+    if(!na)return;
+    it.note=na.value;na.classList.toggle('empty-note',!na.value.trim());
+    syncNoteSize?.();
+    $('#noteState').textContent='Saving…';
+    clearTimeout(tmr);
+    tmr=setTimeout(()=>{persist();rerenderCard(id);$('#noteState').textContent='Note saved';},350);
+  };
+  if(na)na.oninput=commitNoteLive;
+  bindVoiceDemo($('#noteVoice'),na,{
+    phrase:VOICE_DEMO.note,
+    onUpdate:()=>commitNoteLive(),
+    onDone:()=>{persist();rerenderCard(id);$('#noteState').textContent='Note saved';toast('Note added');},
+  });
+  const canvasIn=$('#dCanvasIn');
+  bindVoiceDemo($('#dCanvasVoice'),canvasIn,{
+    phrase:VOICE_DEMO.canvas,
+    onDone:el=>{
+      const name=(el?.value||'').trim();
+      if(!name)return;
+      let c=state.canvases.find(x=>x.name.toLowerCase()===name.toLowerCase());
+      if(!c)c=state.canvases.find(x=>x.name.toLowerCase().includes(name.toLowerCase()));
+      if(!c){c=newCanvas(name);renderPanel();}
+      const n=addToCanvas(c.id,[id]);
+      persist();renderDetailCanvases(id);renderPanel();
+      if($('#view-muse').classList.contains('on'))renderCanvas();
+      toast(n?`Added to “${c.name}”`:`Already on “${c.name}”`);
+    },
+  });
   $('#dAdd').onclick=e=>{const r=e.target.getBoundingClientRect();openPicker([id],r.left,r.bottom+6);};
-  if(focusNote)setTimeout(()=>na.focus(),260);
+  if(focusNote)setTimeout(()=>na?.focus(),260);
+}
+function renderDetailCanvases(id){
+  const box=$('#dCanvases');if(!box)return;
+  const names=state.canvases.filter(c=>c.pos[id]).map(c=>c.name);
+  box.innerHTML=names.map(n=>`<span class="chip">${esc(n)}</span>`).join('')+`<button class="btn" type="button" id="dAdd" style="padding:3px 10px;font-size:12px">${I.plus}Add to canvas</button>`;
+  $('#dAdd').onclick=e=>{const r=e.target.getBoundingClientRect();openPicker([id],r.left,r.bottom+6);};
 }
 function renderDetailTags(it){
   const box=$('#dTags');
   box.innerHTML=it.tags.map((t,i)=>`<span class="chip">${esc(t)}<button type="button" data-rm="${i}" aria-label="Remove tag ${esc(t)}">${I.x}</button></span>`).join('')+`<input class="tag-input" id="tagIn" placeholder="+ Add tag" aria-label="Add tag">`;
   $$('[data-rm]',box).forEach(b=>b.onclick=()=>{it.tags.splice(+b.dataset.rm,1);persist();renderDetailTags(it);rerenderCard(it.id);});
-  $('#tagIn').onkeydown=e=>{if(e.key==='Enter'&&e.target.value.trim()){it.tags.push(e.target.value.trim().toLowerCase());persist();renderDetailTags(it);rerenderCard(it.id);$('#tagIn').focus();}};
+  const tagIn=$('#tagIn');
+  if(tagIn)tagIn.onkeydown=e=>{if(e.key==='Enter'&&e.target.value.trim()){const v=e.target.value.trim().toLowerCase();if(!it.tags.includes(v))it.tags.push(v);persist();renderDetailTags(it);rerenderCard(it.id);$('#tagIn')?.focus();}};
+  bindVoiceDemo($('#dTagVoice'),tagIn,{
+    phrase:VOICE_DEMO.tag,
+    onDone:()=>{
+      const v=(tagIn?.value||'').trim().toLowerCase();
+      if(!v)return;
+      if(!it.tags.includes(v))it.tags.push(v);
+      persist();renderDetailTags(it);rerenderCard(it.id);toast('Tag added');
+    },
+  });
 }
 function closeSide(){detail.classList.remove('on');$('#tray').classList.remove('on');detailId=null;}
 document.addEventListener('click',e=>{const c=e.target.closest('[data-close]');if(c){closeSide();}});
@@ -923,17 +1064,19 @@ function applySearch(fit){
   const p=raw?parseQuery(raw):null;lastP=p;
   const active=p&&!isEmptyQ(p);
   const timeOn=canvasTimeFilter&&canvasTimeFilter!=='all';
+  const noteOn=canvasNoteFilter&&canvasNoteFilter!=='all';
+  const filterOn=timeOn||noteOn;
   const hits=[];
   $$('.card',world).forEach(el=>{
     const it=item(el.dataset.id);
     if(!it){el.classList.remove('hit','dim');$$('.tag',el).forEach(t=>t.classList.remove('hl'));return;}
-    const timeOk=inTimeFilter(it,canvasTimeFilter);
+    const filterOk=inTimeFilter(it,canvasTimeFilter)&&inNoteFilter(it,canvasNoteFilter);
     let showHit=false,dim=false;
     if(active){
-      showHit=matches(it,p)&&timeOk;
+      showHit=matches(it,p)&&filterOk;
       dim=!showHit;
-    }else if(timeOn){
-      dim=!timeOk;
+    }else if(filterOn){
+      dim=!filterOk;
     }
     el.classList.toggle('hit',!!showHit);
     el.classList.toggle('dim',!!dim);
@@ -967,32 +1110,12 @@ qIn.addEventListener('keydown',e=>{
 qIn.addEventListener('focus',()=>{if(!qIn.value.trim())renderSuggest();});
 qIn.addEventListener('blur',()=>setTimeout(()=>$('#suggest').classList.remove('on'),150));
 $('#qClear').onclick=()=>{qIn.value='';syncSearchField();applySearch(false);if(!isMobile()&&!browseMode)fitTo();};
-const VOICE_DEMO_PHRASE='I want to find a green font image I saved last week.';
-let voiceDemoT=null,voiceDemoBusy=false;
 function runVoiceSearchDemo(){
-  const btn=$('#qVoice');if(!btn||voiceDemoBusy)return;
-  voiceDemoBusy=true;
-  clearTimeout(voiceDemoT);
-  $('#suggest')?.classList.remove('on');
-  btn.classList.add('listening');
-  btn.setAttribute('aria-pressed','true');
-  qIn.value='';
-  applySearch(false);
-  qIn.focus();
-  /* brief “listening” beat, then type the demo transcript */
-  voiceDemoT=setTimeout(()=>{
-    let i=0;
-    const tick=()=>{
-      i+=1;
-      qIn.value=VOICE_DEMO_PHRASE.slice(0,i);
-      applySearch(false);
-      if(i<VOICE_DEMO_PHRASE.length){
-        voiceDemoT=setTimeout(tick,18+Math.random()*22);
-        return;
-      }
-      btn.classList.remove('listening');
-      btn.setAttribute('aria-pressed','false');
-      voiceDemoBusy=false;
+  const btn=$('#qVoice');
+  runVoiceIntoField(btn,qIn,{
+    phrase:VOICE_DEMO.search,
+    onUpdate:()=>{applySearch(false);$('#suggest')?.classList.remove('on');},
+    onDone:()=>{
       const hits=applySearch(true);
       if(hits?.includes('i16')||state.items.some(it=>it.id==='i16'&&matches(it,parseQuery(qIn.value)))){
         if(!browseMode){
@@ -1007,9 +1130,8 @@ function runVoiceSearchDemo(){
         }
         toast('Found your green font image from last week');
       }
-    };
-    tick();
-  },700);
+    },
+  });
 }
 $('#qVoice')?.addEventListener('click',()=>runVoiceSearchDemo());
 function renderSuggest(){
@@ -1169,10 +1291,22 @@ function placeOnCanvas(cid,id){
 }
 function renderEpTags(it){
   const box=document.querySelector('.muse-pop.on #epTags, .ext-pop.on #epTags');if(!box)return;
+  const pop=box.closest('.ext-pop, .muse-pop');
   box.innerHTML=it.tags.map((t,i)=>`<span class="chip">${esc(t)}<button type="button" data-rm="${i}" aria-label="Remove tag ${esc(t)}">${I.x}</button></span>`).join('')+`<input class="tag-input" id="epTagIn" placeholder="+ Add tag" aria-label="Add tag">`;
   $$('[data-rm]',box).forEach(b=>b.onclick=()=>{it.tags.splice(+b.dataset.rm,1);persist();renderEpTags(it);});
   const inp=box.querySelector('#epTagIn');
-  if(inp)inp.onkeydown=e=>{if(e.key==='Enter'&&e.target.value.trim()){it.tags.push(e.target.value.trim().toLowerCase());persist();renderEpTags(it);setTimeout(()=>box.querySelector('#epTagIn')?.focus(),0);}};
+  const addTag=()=>{
+    const v=(inp?.value||'').trim().toLowerCase();
+    if(!v)return;
+    if(!it.tags.includes(v))it.tags.push(v);
+    persist();renderEpTags(it);
+  };
+  if(inp)inp.onkeydown=e=>{if(e.key==='Enter'&&e.target.value.trim()){addTag();setTimeout(()=>box.querySelector('#epTagIn')?.focus(),0);}};
+  const tagVoice=pop?.querySelector('#epTagVoice');
+  bindVoiceDemo(tagVoice,inp,{
+    phrase:VOICE_DEMO.tag,
+    onDone:()=>{addTag();toast('Tag added');},
+  });
 }
 function placeMusePopNearCardBtn(pop){
   const btn=$('#newCardBtn'),dock=$('#toolDock'),host=vp;
@@ -1234,9 +1368,9 @@ function openSaveSheet(it,finalTags,opts={}){
       <div class="muse-select-host" id="epDestHost"></div>
     </div>`;
   pop.innerHTML=`<div class="ep-head"><span class="logo"><img src="/logo.png" alt="" width="22" height="22" /><span class="logo-word">Muse<i></i></span></span><span class="ep-head-spacer"></span><button class="icon-x" type="button" id="epX" aria-label="Close">${I.x}</button></div>
-  <div class="ep-body"><div class="ep-thumb">${thumb}</div><div class="ep-meta"><input class="ep-title field" id="epTitle" type="text" value="${esc(titleValue)}" aria-label="Title" placeholder="Add a title"><div class="ep-src">${esc(sourceLabel)}</div></div></div>
-  <div><div class="ai-label">${I.spark}<span id="epAi">AI is looking at it…</span></div><div class="chips" id="epTags"><span class="chip ghost"></span><span class="chip ghost"></span><span class="chip ghost"></span></div></div>
-  <label class="ep-note-wrap"><span class="ep-note-label">Add a thought <em>optional</em></span><input class="field" id="epNote" placeholder="Press Enter to save"></label>
+  <div class="ep-body"><div class="ep-thumb">${thumb}</div><div class="ep-meta"><div class="voice-field voice-field-area"><textarea class="ep-title field auto-grow" id="epTitle" rows="1" aria-label="Title" placeholder="Add a title">${esc(titleValue)}</textarea>${voiceBtnHTML('epTitleVoice')}</div><div class="ep-src">${esc(sourceLabel)}</div></div></div>
+  <div><div class="ai-label">${I.spark}<span id="epAi">AI is looking at it…</span>${voiceBtnHTML('epTagVoice')}</div><div class="chips" id="epTags"><span class="chip ghost"></span><span class="chip ghost"></span><span class="chip ghost"></span></div></div>
+  <label class="ep-note-wrap"><span class="ep-note-label">Add a thought <em>optional</em></span><div class="voice-field voice-field-area"><textarea class="field auto-grow" id="epNote" rows="2" placeholder="Write a thought…">${esc(it.note||'')}</textarea>${voiceBtnHTML('epNoteVoice')}</div></label>
   <div class="ep-foot${onCanvas?' ep-foot-end':''}">
     ${destHtml}
     <button class="btn primary" type="button" id="epSave">Save</button>
@@ -1297,8 +1431,14 @@ function openSaveSheet(it,finalTags,opts={}){
   };
   if(!onCanvas)bindDest();
   q('#epX').onclick=()=>pop.classList.remove('on');
-  q('#epTitle').oninput=()=>commitTitle();
-  q('#epTitle').onchange=()=>commitTitle();
+  const epTitle=q('#epTitle');
+  const syncEpTitle=bindAutosize(epTitle,{min:36,max:120});
+  epTitle.oninput=()=>{commitTitle();syncEpTitle?.();};
+  epTitle.onchange=()=>commitTitle();
+  bindVoiceDemo(q('#epTitleVoice'),epTitle,{
+    phrase:VOICE_DEMO.title,
+    onUpdate:()=>{commitTitle();syncEpTitle?.();},
+  });
   q('#epSave').onclick=()=>{
     commitTitle();
     if(q('#epNewCv'))commitNewCanvas();
@@ -1319,8 +1459,13 @@ function openSaveSheet(it,finalTags,opts={}){
     const dest=canvas(pendingDest);
     toast(onCanvas?`Saved`:`Saved to “${dest?dest.name:'All Inspiration'}”`);
   };
-  q('#epNote').onkeydown=e=>{if(e.key==='Enter'){it.note=e.target.value;persist();e.target.value='';e.target.placeholder='Note saved ✓';}};
-  q('#epNote').oninput=e=>{it.note=e.target.value;};
+  const epNote=q('#epNote');
+  const syncEpNote=bindAutosize(epNote,{min:52,max:160});
+  epNote.oninput=e=>{it.note=e.target.value;syncEpNote?.();};
+  bindVoiceDemo(q('#epNoteVoice'),epNote,{
+    phrase:VOICE_DEMO.thought,
+    onUpdate:el=>{it.note=el.value;syncEpNote?.();},
+  });
   (finalTags||[]).forEach((t,i)=>popTimers.push(setTimeout(()=>{
     if(!it.tags.includes(t))it.tags.push(t);
     renderEpTags(it);
@@ -1371,7 +1516,9 @@ function browseCardHTML(it){
 }
 let browseCanvasFilter='*';
 let browseTimeFilter='newest';
+let browseNoteFilter='all';
 let canvasTimeFilter='all';
+let canvasNoteFilter='all';
 const BROWSE_TIME_OPTS=[
   {value:'newest',label:'Newest first'},
   {value:'oldest',label:'Oldest first'},
@@ -1387,6 +1534,11 @@ const CANVAS_TIME_OPTS=[
   {value:'week',label:'Past week'},
   {value:'month',label:'Past month'},
 ];
+const NOTE_FILTER_OPTS=[
+  {value:'all',label:'All'},
+  {value:'noted',label:'Noted'},
+  {value:'tonote',label:'To note'},
+];
 function timeFilterFrom(key){
   const t0=dayStart(Date.now());
   if(key==='today')return t0;
@@ -1400,6 +1552,13 @@ function inTimeFilter(it,key){
   const from=timeFilterFrom(key);
   if(from==null)return true;
   return it.savedAt!=null&&it.savedAt>=from;
+}
+function inNoteFilter(it,key){
+  if(!key||key==='all')return true;
+  const has=!!(it.note||'').trim();
+  if(key==='noted')return has;
+  if(key==='tonote')return !has;
+  return true;
 }
 function browseCanvasOptions(){
   return [{value:'*',label:'All canvases'},...state.canvases.filter(c=>!c.system).map(c=>({value:c.id,label:c.name}))];
@@ -1423,6 +1582,19 @@ function fillBrowseTimeSelect(){
     onChange:v=>{browseTimeFilter=v;renderBrowse();},
   });
 }
+function fillBrowseNoteSelect(){
+  if(!NOTE_FILTER_OPTS.some(o=>o.value===browseNoteFilter))browseNoteFilter='all';
+  mountMuseSelect($('#browseNoteHost'),{
+    value:browseNoteFilter,
+    options:NOTE_FILTER_OPTS,
+    ariaLabel:'Filter by notes',
+    onChange:v=>{browseNoteFilter=v;renderBrowse();},
+  });
+}
+function syncCanvasFilterSelects(){
+  fillCanvasTimeSelect();
+  fillCanvasNoteSelect();
+}
 function fillCanvasTimeSelect(){
   const host=$('#cvTimeHost');if(!host)return;
   if(!CANVAS_TIME_OPTS.some(o=>o.value===canvasTimeFilter))canvasTimeFilter='all';
@@ -1431,7 +1603,18 @@ function fillCanvasTimeSelect(){
     options:CANVAS_TIME_OPTS,
     ariaLabel:'Filter canvas by time',
     triggerClassName:'muse-select-trigger cv-time-trigger',
-    onChange:v=>{canvasTimeFilter=v;applySearch(false);},
+    onChange:v=>{canvasTimeFilter=v;syncCanvasFilterSelects();applySearch(false);},
+  });
+}
+function fillCanvasNoteSelect(){
+  const host=$('#cvNoteHost');if(!host)return;
+  if(!NOTE_FILTER_OPTS.some(o=>o.value===canvasNoteFilter))canvasNoteFilter='all';
+  mountMuseSelect(host,{
+    value:canvasNoteFilter,
+    options:NOTE_FILTER_OPTS,
+    ariaLabel:'Filter canvas by notes',
+    triggerClassName:'muse-select-trigger cv-time-trigger',
+    onChange:v=>{canvasNoteFilter=v;syncCanvasFilterSelects();applySearch(false);},
   });
 }
 function browseItems(){
@@ -1441,6 +1624,7 @@ function browseItems(){
   let list=state.items.slice();
   if(cv&&cv!=='*'){const c=canvas(cv);list=list.filter(it=>c&&c.pos[it.id]);}
   list=list.filter(it=>inTimeFilter(it,time));
+  list=list.filter(it=>inNoteFilter(it,browseNoteFilter));
   if(p)list=list.filter(it=>matches(it,p));
   list.sort((a,b)=>time==='oldest'?a.savedAt-b.savedAt:b.savedAt-a.savedAt);
   return list;
@@ -1449,10 +1633,11 @@ function renderBrowse(){
   const grid=$('#browseGrid'),count=$('#browseCount');if(!grid)return;
   fillBrowseCanvasSelect();
   fillBrowseTimeSelect();
+  fillBrowseNoteSelect();
   const list=browseItems();
   if(count)count.textContent=`${list.length} item${list.length!==1?'s':''}`;
   if(!list.length){
-    grid.innerHTML=`<div class="browse-empty"><h3>No inspiration here</h3><p>Try another canvas or time filter, or clear your search.</p></div>`;
+    grid.innerHTML=`<div class="browse-empty"><h3>No inspiration here</h3><p>Try another canvas, time, or notes filter, or clear your search.</p></div>`;
     return;
   }
   grid.innerHTML=list.map(browseCardHTML).join('');
