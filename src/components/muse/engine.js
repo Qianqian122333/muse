@@ -193,17 +193,26 @@ function primeVideoEl(v){
   v.setAttribute('playsinline','');
   v.setAttribute('webkit-playsinline','');
   v.setAttribute('preload','auto');
+  /* Only pause while priming a poster frame — never after the user hits play */
+  let priming=true;
+  const onSeeked=()=>{if(priming){try{v.pause();}catch(_){}}};
+  v.addEventListener('seeked',onSeeked);
+  const done=()=>{
+    priming=false;
+    v.removeEventListener('seeked',onSeeked);
+  };
   const paintFrame=async()=>{
+    if(!priming)return;
+    try{if((v.currentTime||0)<0.05)v.currentTime=0.1;}catch(_){}
     try{
-      if((v.currentTime||0)<0.05)v.currentTime=0.1;
-    }catch(_){}
-    try{
-      /* muted play→pause forces a decoded frame on iOS */
       const p=v.play();
       if(p&&typeof p.then==='function')await p;
-      v.pause();
-      if((v.currentTime||0)<0.05)v.currentTime=0.1;
+      if(priming){
+        v.pause();
+        if((v.currentTime||0)<0.05)v.currentTime=0.1;
+      }
     }catch(_){}
+    done();
   };
   if(v.readyState>=2)paintFrame();
   else{
@@ -997,17 +1006,20 @@ function renderDetailCanvases(id){
 }
 function renderDetailTags(it){
   const box=$('#dTags');
-  box.innerHTML=it.tags.map((t,i)=>`<span class="chip">${esc(t)}<button type="button" data-rm="${i}" aria-label="Remove tag ${esc(t)}">${I.x}</button></span>`).join('')+`<input class="tag-input" id="tagIn" placeholder="+ Add tag" aria-label="Add tag">`;
+  box.innerHTML=it.tags.map((t,i)=>`<span class="chip">${esc(t)}<button type="button" data-rm="${i}" aria-label="Remove tag ${esc(t)}">${I.x}</button></span>`).join('')+`<input class="tag-input" id="tagIn" type="text" inputmode="text" placeholder="+ Add tag" aria-label="Add tag">`;
   $$('[data-rm]',box).forEach(b=>b.onclick=()=>{it.tags.splice(+b.dataset.rm,1);persist();renderDetailTags(it);rerenderCard(it.id);});
   const tagIn=$('#tagIn');
-  if(tagIn)tagIn.onkeydown=e=>{if(e.key==='Enter'&&e.target.value.trim()){const v=e.target.value.trim().toLowerCase();if(!it.tags.includes(v))it.tags.push(v);persist();renderDetailTags(it);rerenderCard(it.id);$('#tagIn')?.focus();}};
+  wireTagInput(tagIn,it,{
+    inputSel:'#tagIn',
+    onCommit:()=>{persist();renderDetailTags(it);rerenderCard(it.id);},
+  });
   bindVoiceDemo($('#dTagVoice'),tagIn,{
     phrase:VOICE_DEMO.tag,
     onDone:()=>{
       const v=(tagIn?.value||'').trim().toLowerCase();
       if(!v)return;
       if(!it.tags.includes(v))it.tags.push(v);
-      persist();renderDetailTags(it);rerenderCard(it.id);toast('Tag added');
+      persist();renderDetailTags(it);rerenderCard(it.id);toast('Tag added');focusTagInput('#tagIn');
     },
   });
 }
@@ -1209,10 +1221,60 @@ const WEB={
 ['w-hero','w-side','w-pend','w-video'].forEach(k=>{
   const el=$('#'+k);const w=WEB[k];
   const media=w.video
-    ?`<video src="${w.video}" muted playsinline loop autoplay preload="metadata"></video>`
+    ?`<video src="${esc(videoSrc(w.video))}" muted playsinline webkit-playsinline loop preload="auto"${isMobile()?'':' autoplay'} class="vid-thumb"></video>`
     :`<img src="${w.img}" alt="" draggable="false">`;
-  el.innerHTML=media+(k==='w-video'?`<div class="play"><span>${I.play.replace('<svg','<svg width="22" height="22" style="margin-left:3px"')}</span></div><div class="bar">0:12<i></i>0:48</div>`:'');
+  el.innerHTML=media+(k==='w-video'?`<button type="button" class="play" aria-label="Play video"><span>${I.play.replace('<svg','<svg width="22" height="22" style="margin-left:3px"')}</span></button><div class="bar">0:12<i></i>0:48</div>`:'');
 });
+(()=>{
+  const wrap=$('#w-video');if(!wrap)return;
+  const v=wrap.querySelector('video');if(!v)return;
+  primeVideoEl(v);
+  const sync=()=>wrap.classList.toggle('is-playing',!v.paused&&!v.ended);
+  v.addEventListener('play',sync);v.addEventListener('pause',sync);v.addEventListener('ended',sync);
+  sync();
+  const playNow=()=>{
+    v.muted=true;
+    v.playsInline=true;
+    return v.play().catch(()=>{});
+  };
+  const togglePlay=()=>{
+    if(v.paused||v.ended)playNow();
+    else v.pause();
+  };
+  /* Own gesture handling: short tap = play/pause, long press = save menu */
+  let pt=null;
+  const clearPt=()=>{if(pt?.timer)clearTimeout(pt.timer);pt=null;};
+  wrap.addEventListener('pointerdown',e=>{
+    if(e.pointerType==='mouse'&&e.button!==0)return;
+    clearPt();
+    pt={x:e.clientX,y:e.clientY,id:e.pointerId,long:false};
+    pt.timer=setTimeout(()=>{
+      if(!pt||pt.id!==e.pointerId)return;
+      pt.long=true;
+      openCaptureMenu(pt.x,pt.y,{target:wrap,text:''});
+    },480);
+  });
+  wrap.addEventListener('pointermove',e=>{
+    if(!pt||pt.id!==e.pointerId)return;
+    if(Math.hypot(e.clientX-pt.x,e.clientY-pt.y)>14)clearPt();
+  });
+  wrap.addEventListener('pointerup',e=>{
+    if(!pt||pt.id!==e.pointerId)return;
+    const wasLong=pt.long;
+    clearPt();
+    if(wasLong)return;
+    e.preventDefault();
+    e.stopPropagation();
+    togglePlay();
+  });
+  wrap.addEventListener('pointercancel',clearPt);
+  /* Desktop click fallback when pointer events didn't toggle */
+  wrap.querySelector('.play')?.addEventListener('click',e=>{
+    if(isMobile())return;
+    e.preventDefault();e.stopPropagation();
+    togglePlay();
+  });
+})();
 
 const KW=[[/clarit|simple|simplicit/,'clarity'],[/cognitive|choice|decision/,'cognitive load'],[/white\s*space|breath|empty/,'white space'],[/consist/,'consistency'],[/user|need|goal/,'user needs'],[/test|usabilit/,'usability'],[/hierarch/,'hierarchy'],[/minimal|less is more|remove/,'minimalism'],[/interface|ux|experience/,'ux'],[/onboard/,'onboarding']];
 function tagsForText(t){const s=t.toLowerCase();const out=[];KW.forEach(([re,tag])=>{if(re.test(s)&&!out.includes(tag))out.push(tag);});return [...out.slice(0,4),'quote'];}
@@ -1266,6 +1328,7 @@ document.addEventListener('selectionchange',()=>{
   const bar=$('#textSaveBar');if(!bar)return;
   let pendingText='';
   const capture=()=>{pendingText=getPageSelectionText();};
+  /* Capture selection on pointerdown before iOS clears it; open save sheet on the same tap */
   bar.addEventListener('pointerdown',e=>{e.preventDefault();capture();},{passive:false});
   bar.addEventListener('click',e=>{
     e.preventDefault();
@@ -1273,15 +1336,16 @@ document.addEventListener('selectionchange',()=>{
     const text=pendingText||getPageSelectionText();
     pendingText='';
     if(!text){syncTextSaveBar();return;}
-    const r=bar.getBoundingClientRect();
     bar.hidden=true;
-    openCaptureMenu(r.left+r.width/2,r.bottom+4,{text,target:null});
+    try{window.getSelection()?.removeAllRanges();}catch(_){}
+    saveFromWeb({text},null);
   });
 })();
-/* Mobile: press & hold a saveable to open the Muse save menu */
+/* Mobile: press & hold a saveable to open the Muse save menu (video has its own handler) */
 let holdT=null,holdPt=null;
 page.addEventListener('touchstart',e=>{
   if(!isMobile())return;
+  if(e.target.closest('#w-video'))return;
   const target=e.target.closest('[data-save]');
   if(!target)return;
   const t=e.touches[0];
@@ -1318,23 +1382,55 @@ function placeOnCanvas(cid,id){
   }
   c.viewSet=false;
 }
+function focusTagInput(sel='#epTagIn'){
+  requestAnimationFrame(()=>{
+    const el=$(sel);
+    if(!el)return;
+    el.focus();
+    try{el.setSelectionRange(el.value.length,el.value.length);}catch(_){}
+  });
+}
+function wireTagInput(inp,it,{onCommit,inputSel='#epTagIn'}={}){
+  if(!inp)return;
+  inp.setAttribute('enterkeyhint','done');
+  inp.setAttribute('autocomplete','off');
+  inp.setAttribute('autocapitalize','off');
+  const commit=()=>{
+    const v=(inp.value||'').trim().toLowerCase();
+    if(!v)return false;
+    if(!it.tags.includes(v))it.tags.push(v);
+    onCommit?.(v);
+    return true;
+  };
+  inp.addEventListener('keydown',e=>{
+    if(e.isComposing||e.keyCode===229)return;
+    if(e.key==='Enter'){
+      e.preventDefault();
+      if(commit())focusTagInput(inputSel);
+    }
+  });
+  /* Mobile keyboards often dismiss with Done/blur instead of Enter */
+  inp.addEventListener('change',()=>{if(commit())focusTagInput(inputSel);});
+}
 function renderEpTags(it){
   const box=document.querySelector('.muse-pop.on #epTags, .ext-pop.on #epTags');if(!box)return;
   const pop=box.closest('.ext-pop, .muse-pop');
-  box.innerHTML=it.tags.map((t,i)=>`<span class="chip">${esc(t)}<button type="button" data-rm="${i}" aria-label="Remove tag ${esc(t)}">${I.x}</button></span>`).join('')+`<input class="tag-input" id="epTagIn" placeholder="+ Add tag" aria-label="Add tag">`;
+  box.innerHTML=it.tags.map((t,i)=>`<span class="chip">${esc(t)}<button type="button" data-rm="${i}" aria-label="Remove tag ${esc(t)}">${I.x}</button></span>`).join('')+`<input class="tag-input" id="epTagIn" type="text" inputmode="text" placeholder="+ Add tag" aria-label="Add tag">`;
   $$('[data-rm]',box).forEach(b=>b.onclick=()=>{it.tags.splice(+b.dataset.rm,1);persist();renderEpTags(it);});
   const inp=box.querySelector('#epTagIn');
-  const addTag=()=>{
-    const v=(inp?.value||'').trim().toLowerCase();
-    if(!v)return;
-    if(!it.tags.includes(v))it.tags.push(v);
-    persist();renderEpTags(it);
-  };
-  if(inp)inp.onkeydown=e=>{if(e.key==='Enter'&&e.target.value.trim()){addTag();setTimeout(()=>box.querySelector('#epTagIn')?.focus(),0);}};
+  wireTagInput(inp,it,{
+    inputSel:'#epTagIn',
+    onCommit:()=>{persist();renderEpTags(it);},
+  });
   const tagVoice=pop?.querySelector('#epTagVoice');
   bindVoiceDemo(tagVoice,inp,{
     phrase:VOICE_DEMO.tag,
-    onDone:()=>{addTag();toast('Tag added');},
+    onDone:()=>{
+      const v=(inp?.value||'').trim().toLowerCase();
+      if(!v)return;
+      if(!it.tags.includes(v))it.tags.push(v);
+      persist();renderEpTags(it);toast('Tag added');focusTagInput('#epTagIn');
+    },
   });
 }
 function placeMusePopNearCardBtn(pop){
