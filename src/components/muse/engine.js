@@ -1612,10 +1612,11 @@ function browseSizeClass(it){
   if(it.type==='article')return 'b-quote';
   if(it.type==='link')return 'b-short';
   if(it.type==='video')return 'b-tall';
+  /* Real photos keep natural aspect — never crop with tall/short cover rules */
+  if(it.img)return 'b-photo';
   const h=it.art&&it.art.h;
   if(h&&h>=360)return 'b-tall';
   if(h&&h<=220)return 'b-short';
-  if(it.img){const n=(it.id||'').charCodeAt((it.id||'').length-1)||0;return n%3===0?'b-tall':n%3===1?'b-short':'';}
   return '';
 }
 function browseCardHTML(it){

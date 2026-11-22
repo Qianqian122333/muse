@@ -340,8 +340,12 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .browse-grid .b-card.dragging{cursor:pointer}
 .browse-grid .b-card:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .browse-grid .b-card .media img,.browse-grid .b-card .media svg{width:100%;height:auto;display:block}
-.browse-grid .b-card.b-tall .media img,.browse-grid .b-card.b-tall .media svg{min-height:280px;object-fit:cover}
-.browse-grid .b-card.b-short .media img,.browse-grid .b-card.b-short .media svg{max-height:160px;object-fit:cover}
+.browse-grid .b-card.b-photo .media img{
+  width:100%;height:auto;max-height:none;min-height:0;
+  object-fit:contain;object-position:center top;background:var(--chip);
+}
+.browse-grid .b-card.b-tall .media svg{min-height:280px;object-fit:cover}
+.browse-grid .b-card.b-short .media svg{max-height:160px;object-fit:cover}
 .browse-grid .b-card .quote{font-size:18px;display:block}
 .browse-grid .b-card.b-quote .quote{font-size:22px;padding:22px 18px 8px;line-height:1.28}
 .browse-grid .b-card .note p{-webkit-line-clamp:6}
@@ -752,10 +756,9 @@ textarea.auto-grow:not(.note-area){resize:none}
   .browse-scroll{padding:12px 10px 20px}
   .browse-grid{column-width:158px;column-gap:12px}
   .browse-grid .b-card{margin-bottom:12px;border-radius:12px}
-  .browse-grid .b-card.b-tall .media img,
   .browse-grid .b-card.b-tall .media svg{min-height:200px}
-  .browse-grid .b-card.b-short .media img,
   .browse-grid .b-card.b-short .media svg{max-height:140px}
+  .browse-grid .b-card.b-photo .media img{max-height:none;min-height:0;object-fit:contain}
   .browse-grid .b-card .quote{font-size:16px;padding:16px 14px 4px}
   .browse-grid .b-card.b-quote .quote{font-size:18px}
 
