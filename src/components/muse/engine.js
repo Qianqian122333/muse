@@ -179,39 +179,78 @@ const ART={
     <rect x="0" y="${h-38}" width="300" height="38" fill="#C7B79D"/><rect x="196" y="${h-104}" width="58" height="66" rx="6" fill="#141414"/><rect x="190" y="${h-78}" width="70" height="20" rx="8" fill="#141414"/>`);}
 };
 const artCache={};
+function videoSrc(url){
+  if(!url)return '';
+  /* #t=0.1 helps Safari/iOS paint a paused poster frame instead of black */
+  return /#t=/.test(url)?url:`${url}#t=0.1`;
+}
 function primeVideoEl(v){
   if(!v||v.dataset.primed==='1')return;
   v.dataset.primed='1';
   v.muted=true;
+  v.defaultMuted=true;
   v.playsInline=true;
-  const showFrame=()=>{
-    try{if((v.currentTime||0)<0.08)v.currentTime=0.08;}catch(_){}
+  v.setAttribute('playsinline','');
+  v.setAttribute('webkit-playsinline','');
+  v.setAttribute('preload','auto');
+  const paintFrame=async()=>{
+    try{
+      if((v.currentTime||0)<0.05)v.currentTime=0.1;
+    }catch(_){}
+    try{
+      /* muted play→pause forces a decoded frame on iOS */
+      const p=v.play();
+      if(p&&typeof p.then==='function')await p;
+      v.pause();
+      if((v.currentTime||0)<0.05)v.currentTime=0.1;
+    }catch(_){}
   };
-  const freeze=()=>{try{v.pause();}catch(_){}};
-  if(v.readyState>=2)showFrame();
-  else v.addEventListener('loadeddata',showFrame,{once:true});
-  v.addEventListener('seeked',freeze);
+  if(v.readyState>=2)paintFrame();
+  else{
+    v.addEventListener('loadeddata',()=>{paintFrame();},{once:true});
+    try{v.load();}catch(_){}
+  }
+}
+function syncCardVideoChrome(v){
+  const media=v.closest('.media, .d-media-video');
+  if(!media)return;
+  const playing=!v.paused&&!v.ended;
+  media.classList.toggle('is-playing',playing);
+  const hint=media.querySelector('.play, .vid-play-hint');
+  if(hint){
+    if('hidden' in hint)hint.hidden=playing;
+    else hint.style.display=playing?'none':'';
+  }
 }
 function bindVideoTapToPlay(v){
   if(!v||v.dataset.tapPlay==='1')return;
   v.dataset.tapPlay='1';
-  v.addEventListener('click',e=>{
+  const media=v.closest('.media, .d-media-video');
+  const toggle=e=>{
     e.preventDefault();
     e.stopPropagation();
-    if(v.paused)v.play().catch(()=>{});
+    if(v.paused||v.ended)v.play().catch(()=>{});
     else v.pause();
+  };
+  v.addEventListener('click',toggle);
+  media?.querySelectorAll('.play, .vid-play-hint').forEach(btn=>{
+    btn.addEventListener('click',toggle);
   });
+  v.addEventListener('play',()=>syncCardVideoChrome(v));
+  v.addEventListener('pause',()=>syncCardVideoChrome(v));
+  v.addEventListener('ended',()=>syncCardVideoChrome(v));
+  syncCardVideoChrome(v);
 }
 function hydrateVideos(root=document){
   $$('video',root).forEach(v=>{
     primeVideoEl(v);
-    if(v.closest('.d-media-video'))bindVideoTapToPlay(v);
+    if(v.closest('.d-media-video, .card .media, .b-card .media'))bindVideoTapToPlay(v);
   });
 }
 function mediaHTML(it){
   /* Prefer the real video file so Muse cards match the capture-page player */
   if(it.video){
-    return `<video src="${esc(it.video)}" muted playsinline preload="auto" class="vid-thumb"></video>`;
+    return `<video src="${esc(videoSrc(it.video))}" muted playsinline webkit-playsinline preload="auto" class="vid-thumb"></video>`;
   }
   if(it.img){
     return `<img src="${it.img}" alt="" loading="lazy" draggable="false">`;
@@ -874,7 +913,7 @@ function openDetail(id,focusNote){
   const inCanvases=state.canvases.filter(c=>c.pos[id]).map(c=>c.name);
   let media='';
   if(it.type==='video'&&it.video){
-    media=`<div class="d-media d-media-video"><video src="${esc(it.video)}" muted playsinline loop controls preload="auto" class="vid-thumb"></video><button type="button" class="vid-play-hint" aria-label="Play video">${I.play}</button></div>`;
+    media=`<div class="d-media d-media-video"><video src="${esc(videoSrc(it.video))}" muted playsinline webkit-playsinline loop preload="auto" class="vid-thumb"></video><button type="button" class="vid-play-hint" aria-label="Play video">${I.play}</button></div>`;
   }else if(it.type==='image'||it.type==='video'){
     media=`<div class="d-media">${artFor(it)}</div>`;
   }else if(it.type==='article')media=`<blockquote class="d-quote">“${esc(it.text)}”</blockquote>`;
@@ -900,17 +939,7 @@ function openDetail(id,focusNote){
   </div>`;
   detail.classList.add('on');
   renderDetailTags(it);
-  const vidWrap=$('.d-media-video',detail);
-  const vid=vidWrap&&$('video',vidWrap);
-  const hint=vidWrap&&$('.vid-play-hint',vidWrap);
-  if(vid){
-    hydrateVideos(vidWrap);
-    const syncHint=()=>{if(hint)hint.hidden=!vid.paused;};
-    vid.addEventListener('play',syncHint);
-    vid.addEventListener('pause',syncHint);
-    syncHint();
-    if(hint)hint.onclick=e=>{e.preventDefault();e.stopPropagation();vid.play().catch(()=>{});};
-  }
+  if($('.d-media-video',detail))hydrateVideos(detail);
   const titleEl=$('#dTitle');let titleTmr;
   const syncTitleSize=bindAutosize(titleEl,{min:42,max:160});
   const commitTitleLive=()=>{
@@ -1643,7 +1672,10 @@ function renderBrowse(){
   grid.innerHTML=list.map(browseCardHTML).join('');
   hydrateVideos(grid);
   $$('.b-card',grid).forEach(el=>{
-    el.onclick=()=>openDetail(el.dataset.id);
+    el.onclick=e=>{
+      if(e.target.closest('.media video, .media .play, .media .dur'))return;
+      openDetail(el.dataset.id);
+    };
   });
 }
 function syncMobileChrome(){
